@@ -112,39 +112,75 @@ nav{display:flex;justify-content:space-between;align-items:center;padding:28px 0
 .pg-card.selected .pg-select-check svg{opacity:1}
 
 /* ── CROP MODAL ── */
-.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:500;display:none;align-items:center;justify-content:center;padding:20px}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:500;display:none;flex-direction:column}
 .modal-overlay.show{display:flex;animation:fadeIn .2s ease}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
-.modal{background:var(--surface);border:1px solid var(--border);border-radius:20px;width:100%;max-width:700px;overflow:hidden;animation:slideUp .25s ease}
-@keyframes slideUp{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
-.modal-header{padding:20px 24px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
-.modal-title{font-size:1rem;font-weight:700}
-.modal-title span{color:var(--accent)}
-.modal-close{background:none;border:none;color:var(--muted);cursor:pointer;width:32px;height:32px;border-radius:7px;display:flex;align-items:center;justify-content:center;transition:all .2s}
-.modal-close:hover{background:rgba(255,68,68,.1);color:var(--error)}
-.modal-close svg{width:16px;height:16px;stroke:currentColor}
-.modal-body{padding:20px 24px}
-.crop-layout{display:grid;grid-template-columns:1fr 240px;gap:20px;align-items:start}
-.crop-canvas-wrap{position:relative;background:#000;border-radius:10px;overflow:hidden;border:1px solid var(--border)}
-#cropCanvas{display:block;width:100%;cursor:crosshair}
-.crop-rect{position:absolute;border:2px solid var(--accent);background:rgba(200,255,0,.06);pointer-events:none;display:none}
-.crop-rect.show{display:block}
-.crop-handle{position:absolute;width:8px;height:8px;background:var(--accent);border-radius:2px}
-.crop-controls{display:flex;flex-direction:column;gap:12px}
-.crop-input-group{display:flex;flex-direction:column;gap:6px}
-.crop-label{font-family:'DM Mono',monospace;font-size:.64rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase}
-.crop-inputs-row{display:grid;grid-template-columns:1fr 1fr;gap:6px}
-.crop-num-input{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-family:'DM Mono',monospace;font-size:.82rem;outline:none;transition:border-color .2s;width:100%}
+
+/* Top bar — always visible */
+.crop-topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0;gap:12px;flex-wrap:wrap}
+.crop-topbar-left{display:flex;align-items:center;gap:12px}
+.crop-title{font-size:.95rem;font-weight:800;letter-spacing:-.02em}
+.crop-title span{color:var(--accent)}
+.crop-topbar-close{background:none;border:1px solid var(--border);color:var(--muted);cursor:pointer;width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;transition:all .2s;flex-shrink:0}
+.crop-topbar-close:hover{background:rgba(255,68,68,.12);border-color:var(--error);color:var(--error)}
+.crop-topbar-close svg{width:15px;height:15px;stroke:currentColor}
+
+/* Canvas area — scrollable middle */
+.crop-canvas-area{flex:1;overflow:auto;display:flex;align-items:center;justify-content:center;padding:16px;min-height:0;background:#0a0a0f}
+.crop-stage{position:relative;display:inline-block;line-height:0;touch-action:none}
+#cropCanvas{display:block;max-width:100%;max-height:calc(100vh - 260px);border-radius:6px}
+
+/* The live crop overlay drawn on top of canvas */
+.crop-overlay-svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+
+/* Draggable edge lines */
+.crop-edge{position:absolute;background:var(--accent);opacity:.9}
+.crop-edge-top{top:0;left:0;right:0;height:2px;cursor:ns-resize}
+.crop-edge-bottom{bottom:0;left:0;right:0;height:2px;cursor:ns-resize}
+.crop-edge-left{top:0;bottom:0;left:0;width:2px;cursor:ew-resize}
+.crop-edge-right{top:0;bottom:0;right:0;width:2px;cursor:ew-resize}
+
+/* Corner handles */
+.crop-corner{position:absolute;width:18px;height:18px;background:var(--accent);border-radius:3px;z-index:2}
+.crop-corner-tl{top:-2px;left:-2px;cursor:nwse-resize}
+.crop-corner-tr{top:-2px;right:-2px;cursor:nesw-resize}
+.crop-corner-bl{bottom:-2px;left:-2px;cursor:nesw-resize}
+.crop-corner-br{bottom:-2px;right:-2px;cursor:nwse-resize}
+
+/* The darkened outside region */
+.crop-shade{position:absolute;inset:0;pointer-events:none}
+.crop-shade-top{position:absolute;top:0;left:0;right:0;background:rgba(0,0,0,.55)}
+.crop-shade-bot{position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,.55)}
+.crop-shade-left{position:absolute;background:rgba(0,0,0,.55)}
+.crop-shade-right{position:absolute;background:rgba(0,0,0,.55)}
+
+/* The crop box itself — pointer events for drag */
+.crop-box{position:absolute;border:2px solid var(--accent);box-sizing:border-box;touch-action:none}
+
+/* Bottom controls bar — always visible, never scrolls away */
+.crop-controls-bar{flex-shrink:0;background:var(--surface);border-top:1px solid var(--border);padding:12px 16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.crop-inputs-mini{display:flex;gap:6px;align-items:center;flex-wrap:wrap;flex:1}
+.crop-mini-field{display:flex;align-items:center;gap:5px}
+.crop-mini-lbl{font-family:'DM Mono',monospace;font-size:.6rem;color:var(--muted);letter-spacing:.08em;white-space:nowrap}
+.crop-num-input{background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:6px 8px;color:var(--text);font-family:'DM Mono',monospace;font-size:.78rem;outline:none;transition:border-color .2s;width:58px;text-align:center}
 .crop-num-input:focus{border-color:var(--accent)}
-.crop-hint{font-family:'DM Mono',monospace;font-size:.62rem;color:var(--muted);line-height:1.5}
-.crop-presets{display:grid;grid-template-columns:1fr 1fr;gap:6px}
-.crop-preset-btn{background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:7px 6px;cursor:pointer;font-family:'DM Mono',monospace;font-size:.64rem;color:var(--muted);text-align:center;transition:all .2s}
+.crop-bar-sep{width:1px;height:24px;background:var(--border);flex-shrink:0}
+.crop-presets-mini{display:flex;gap:5px;flex-wrap:wrap}
+.crop-preset-btn{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:5px 9px;cursor:pointer;font-family:'DM Mono',monospace;font-size:.62rem;color:var(--muted);transition:all .2s;white-space:nowrap}
 .crop-preset-btn:hover{border-color:rgba(200,255,0,.4);color:var(--accent)}
-.modal-footer{padding:16px 24px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end}
-.modal-cancel-btn{background:none;border:1px solid var(--border);color:var(--muted);padding:10px 18px;border-radius:9px;font-family:'Syne',sans-serif;font-size:.85rem;cursor:pointer;transition:all .2s}
+.crop-bar-actions{display:flex;gap:8px;flex-shrink:0}
+.modal-cancel-btn{background:none;border:1px solid var(--border);color:var(--muted);padding:9px 16px;border-radius:9px;font-family:'Syne',sans-serif;font-size:.82rem;cursor:pointer;transition:all .2s;white-space:nowrap}
 .modal-cancel-btn:hover{border-color:var(--text);color:var(--text)}
-.modal-apply-btn{background:var(--accent);color:#0a0a0f;border:none;padding:10px 22px;border-radius:9px;font-family:'Syne',sans-serif;font-size:.88rem;font-weight:800;cursor:pointer;transition:all .2s}
-.modal-apply-btn:hover{background:#d4ff1a;transform:translateY(-1px)}
+.modal-apply-btn{background:var(--accent);color:#0a0a0f;border:none;padding:9px 20px;border-radius:9px;font-family:'Syne',sans-serif;font-size:.88rem;font-weight:800;cursor:pointer;transition:all .2s;white-space:nowrap}
+.modal-apply-btn:hover{background:#d4ff1a}
+@media(max-width:480px){
+  .crop-topbar{padding:10px 12px}
+  .crop-mini-lbl{display:none}
+  .crop-num-input{width:48px;font-size:.72rem}
+  .crop-bar-sep{display:none}
+  .modal-cancel-btn{padding:8px 12px;font-size:.78rem}
+  .modal-apply-btn{padding:8px 14px;font-size:.82rem}
+}
 
 /* ── EXPORT PANEL ── */
 .export-panel{background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden;margin-bottom:24px}
@@ -279,7 +315,7 @@ footer span{color:var(--accent)}
 
 <nav>
   <div class="logo"><div class="logo-dot"></div>PAGR</div>
-  <div class="nav-tag">PDF PAGE EDITOR v1.0</div>
+  <div class="nav-tag">PDF PAGE EDITOR v1.2</div>
 </nav>
 
 <div class="hero">
@@ -296,7 +332,7 @@ footer span{color:var(--accent)}
       <svg fill="none" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/></svg>
     </div>
     <div class="drop-title">Drop your PDF here</div>
-    <div class="drop-sub">Single PDF · 100% in-browser · No uploads</div>
+    <div class="drop-sub">Single PDF · Processed locally · Files stay on your device</div>
     <button class="browse-btn" id="browseBtn">Choose File</button>
   </div>
 </div>
@@ -431,52 +467,62 @@ footer span{color:var(--accent)}
 
 </div><!-- /editorSection -->
 
-<!-- Crop Modal -->
+<!-- Crop Modal — full screen, always-visible Apply -->
 <div class="modal-overlay" id="cropModal">
-  <div class="modal">
-    <div class="modal-header">
-      <div class="modal-title">Crop Page — <span id="cropPageLabel">p1</span></div>
-      <button class="modal-close" id="cropClose"><svg fill="none" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg></button>
+
+  <!-- Top bar -->
+  <div class="crop-topbar">
+    <div class="crop-topbar-left">
+      <div class="crop-title">Crop — <span id="cropPageLabel">p1</span></div>
     </div>
-    <div class="modal-body">
-      <div class="crop-layout">
-        <div>
-          <div class="crop-canvas-wrap" id="cropCanvasWrap">
-            <canvas id="cropCanvas"></canvas>
-            <div class="crop-rect" id="cropRect"></div>
-          </div>
-          <div style="margin-top:8px;font-family:'DM Mono',monospace;font-size:.62rem;color:var(--muted)">Drag on the preview to draw a crop region</div>
-        </div>
-        <div class="crop-controls">
-          <div class="crop-input-group">
-            <div class="crop-label">Crop Region (px)</div>
-            <div class="crop-inputs-row">
-              <div><div style="font-family:'DM Mono',monospace;font-size:.6rem;color:var(--muted);margin-bottom:3px">LEFT</div><input class="crop-num-input" id="cropL" type="number" min="0" value="0"/></div>
-              <div><div style="font-family:'DM Mono',monospace;font-size:.6rem;color:var(--muted);margin-bottom:3px">TOP</div><input class="crop-num-input" id="cropT" type="number" min="0" value="0"/></div>
-            </div>
-            <div class="crop-inputs-row" style="margin-top:6px">
-              <div><div style="font-family:'DM Mono',monospace;font-size:.6rem;color:var(--muted);margin-bottom:3px">RIGHT</div><input class="crop-num-input" id="cropR" type="number" min="0" value="0"/></div>
-              <div><div style="font-family:'DM Mono',monospace;font-size:.6rem;color:var(--muted);margin-bottom:3px">BOTTOM</div><input class="crop-num-input" id="cropB" type="number" min="0" value="0"/></div>
-            </div>
-          </div>
-          <div class="crop-input-group">
-            <div class="crop-label">Quick Presets</div>
-            <div class="crop-presets">
-              <button class="crop-preset-btn" data-preset="10">Trim 10px</button>
-              <button class="crop-preset-btn" data-preset="20">Trim 20px</button>
-              <button class="crop-preset-btn" data-preset="40">Trim 40px</button>
-              <button class="crop-preset-btn" data-clear="1">Clear</button>
-            </div>
-          </div>
-          <div class="crop-hint">Values are pixels on the <strong style="color:var(--text)">rendered page</strong>. Crop removes a margin from each side.</div>
-        </div>
+    <button class="crop-topbar-close" id="cropClose"><svg fill="none" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg></button>
+  </div>
+
+  <!-- Canvas area -->
+  <div class="crop-canvas-area">
+    <div class="crop-stage" id="cropStage">
+      <canvas id="cropCanvas"></canvas>
+      <!-- Shade layers (outside crop box) -->
+      <div class="crop-shade-top" id="shadeTop"></div>
+      <div class="crop-shade-bot" id="shadeBot"></div>
+      <div class="crop-shade-left" id="shadeLeft"></div>
+      <div class="crop-shade-right" id="shadeRight"></div>
+      <!-- Crop box with edges + corners -->
+      <div class="crop-box" id="cropBox">
+        <div class="crop-edge crop-edge-top" data-handle="top"></div>
+        <div class="crop-edge crop-edge-bottom" data-handle="bottom"></div>
+        <div class="crop-edge crop-edge-left" data-handle="left"></div>
+        <div class="crop-edge crop-edge-right" data-handle="right"></div>
+        <div class="crop-corner crop-corner-tl" data-handle="tl"></div>
+        <div class="crop-corner crop-corner-tr" data-handle="tr"></div>
+        <div class="crop-corner crop-corner-bl" data-handle="bl"></div>
+        <div class="crop-corner crop-corner-br" data-handle="br"></div>
       </div>
     </div>
-    <div class="modal-footer">
+  </div>
+
+  <!-- Always-visible bottom bar -->
+  <div class="crop-controls-bar">
+    <div class="crop-inputs-mini">
+      <div class="crop-mini-field"><span class="crop-mini-lbl">L</span><input class="crop-num-input" id="cropL" type="number" min="0" value="0"/></div>
+      <div class="crop-mini-field"><span class="crop-mini-lbl">T</span><input class="crop-num-input" id="cropT" type="number" min="0" value="0"/></div>
+      <div class="crop-mini-field"><span class="crop-mini-lbl">R</span><input class="crop-num-input" id="cropR" type="number" min="0" value="0"/></div>
+      <div class="crop-mini-field"><span class="crop-mini-lbl">B</span><input class="crop-num-input" id="cropB" type="number" min="0" value="0"/></div>
+    </div>
+    <div class="crop-bar-sep"></div>
+    <div class="crop-presets-mini">
+      <button class="crop-preset-btn" data-preset="10">±10</button>
+      <button class="crop-preset-btn" data-preset="20">±20</button>
+      <button class="crop-preset-btn" data-preset="40">±40</button>
+      <button class="crop-preset-btn" data-clear="1">Reset</button>
+    </div>
+    <div class="crop-bar-sep"></div>
+    <div class="crop-bar-actions">
       <button class="modal-cancel-btn" id="cropCancel">Cancel</button>
-      <button class="modal-apply-btn" id="cropApply">Apply Crop</button>
+      <button class="modal-apply-btn" id="cropApply">✓ Apply</button>
     </div>
   </div>
+
 </div>
 
 <div class="features">
@@ -528,10 +574,9 @@ let isProcessing = false;
 let dragSrcIdx = null;
 
 // Crop state
-let cropPageIdx = null; // index into pages[]
-let cropCanvas = null, cropCtx = null;
+let cropPageIdx = null;
 let cropDragging = false, cropStart = {x:0,y:0}, cropEnd = {x:0,y:0};
-let cropNaturalW = 0, cropNaturalH = 0; // rendered canvas pixel dims
+let cropNaturalW = 0, cropNaturalH = 0;
 
 const $ = id => document.getElementById(id);
 
@@ -745,6 +790,10 @@ function updateStats() {
 }
 
 // ── Crop Modal ─────────────────────────────────────────────────
+// Crop state: values in natural canvas pixels
+let cropBoxL = 0, cropBoxT = 0, cropBoxR = 0, cropBoxB = 0;
+let cropHandleDrag = null; // {handle, startX, startY, startL, startT, startR, startB}
+
 $('btnCrop').addEventListener('click', () => {
   const idx = [...selectedIds][0];
   if (idx === undefined || pages[idx].deleted) return;
@@ -755,111 +804,156 @@ $('btnCrop').addEventListener('click', () => {
 function openCropModal(idx) {
   const pg = pages[idx];
   $('cropPageLabel').textContent = 'p' + (idx + 1);
-  const modal = $('cropModal');
-  modal.classList.add('show');
+  $('cropModal').classList.add('show');
+  document.body.style.overflow = 'hidden';
 
-  // Restore existing crop values
-  $('cropL').value = pg.crop ? pg.crop.l : 0;
-  $('cropT').value = pg.crop ? pg.crop.t : 0;
-  $('cropR').value = pg.crop ? pg.crop.r : 0;
-  $('cropB').value = pg.crop ? pg.crop.b : 0;
-
-  // Render preview
+  // Render canvas
   const cc = $('cropCanvas');
   cropNaturalW = pg.canvas.width;
   cropNaturalH = pg.canvas.height;
   cc.width = cropNaturalW;
   cc.height = cropNaturalH;
-  const ctx = cc.getContext('2d');
-  ctx.drawImage(pg.canvas, 0, 0);
-  cropCanvas = cc;
-  cropCtx = ctx;
-  updateCropRect();
+  cc.getContext('2d').drawImage(pg.canvas, 0, 0);
+
+  // Load existing crop or default to full image
+  cropBoxL = pg.crop ? pg.crop.l : 0;
+  cropBoxT = pg.crop ? pg.crop.t : 0;
+  cropBoxR = pg.crop ? pg.crop.r : 0;
+  cropBoxB = pg.crop ? pg.crop.b : 0;
+
+  syncInputsFromBox();
+  // Wait a frame for layout then position box
+  requestAnimationFrame(() => positionCropBox());
 }
 
-function updateCropRect() {
-  const l = parseInt($('cropL').value) || 0;
-  const t = parseInt($('cropT').value) || 0;
-  const r = parseInt($('cropR').value) || 0;
-  const b = parseInt($('cropB').value) || 0;
-  const rect = $('cropRect');
-  const wrap = $('cropCanvasWrap');
-  const scaleX = wrap.clientWidth / cropNaturalW;
-  const scaleY = (wrap.clientWidth * cropNaturalH / cropNaturalW) / cropNaturalH;
-  const scale = Math.min(scaleX, scaleY);
-  if (l + r >= cropNaturalW || t + b >= cropNaturalH) { rect.classList.remove('show'); return; }
-  rect.style.left = (l * scale) + 'px';
-  rect.style.top = (t * scale) + 'px';
-  rect.style.width = ((cropNaturalW - l - r) * scale) + 'px';
-  rect.style.height = ((cropNaturalH - t - b) * scale) + 'px';
-  rect.classList.add('show');
+function closeCropModal() {
+  $('cropModal').classList.remove('show');
+  document.body.style.overflow = '';
+  cropPageIdx = null;
+  cropHandleDrag = null;
 }
 
-['cropL','cropT','cropR','cropB'].forEach(id => $('cropL') && $(id).addEventListener('input', updateCropRect));
-// re-attach after DOM is ready
-document.addEventListener('DOMContentLoaded', () => {
-  ['cropL','cropT','cropR','cropB'].forEach(id => $(id).addEventListener('input', updateCropRect));
-});
+// Convert natural px → display px (canvas element size vs natural size)
+function getDisplayScale() {
+  const cc = $('cropCanvas');
+  return { sx: cc.offsetWidth / cropNaturalW, sy: cc.offsetHeight / cropNaturalH };
+}
 
-// Draw crop on canvas via drag (mouse + touch)
-function getCropPos(e) {
-  const r = $('cropCanvas').getBoundingClientRect();
-  const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-  const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-  return { x: Math.min(Math.max(clientX - r.left, 0), r.width), y: Math.min(Math.max(clientY - r.top, 0), r.height) };
+function positionCropBox() {
+  const { sx, sy } = getDisplayScale();
+  const box = $('cropBox');
+  const l = cropBoxL * sx, t = cropBoxT * sy;
+  const r = cropBoxR * sx, b = cropBoxB * sy;
+  const cc = $('cropCanvas');
+  const W = cc.offsetWidth, H = cc.offsetHeight;
+  box.style.left   = l + 'px';
+  box.style.top    = t + 'px';
+  box.style.width  = Math.max(W - l - r, 4) + 'px';
+  box.style.height = Math.max(H - t - b, 4) + 'px';
+  updateShades(l, t, r, b, W, H);
 }
-function applyCropDrag(start, end) {
-  const r = $('cropCanvas').getBoundingClientRect();
-  const scaleX = cropNaturalW / r.width;
-  const scaleY = cropNaturalH / r.height;
-  const x1 = Math.min(start.x, end.x) * scaleX;
-  const y1 = Math.min(start.y, end.y) * scaleY;
-  const x2 = Math.max(start.x, end.x) * scaleX;
-  const y2 = Math.max(start.y, end.y) * scaleY;
-  $('cropL').value = Math.round(x1);
-  $('cropT').value = Math.round(y1);
-  $('cropR').value = Math.round(Math.max(cropNaturalW - x2, 0));
-  $('cropB').value = Math.round(Math.max(cropNaturalH - y2, 0));
-  updateCropRect();
+
+function updateShades(l, t, r, b, W, H) {
+  const bh = Math.max(H - t - b, 0);
+  $('shadeTop').style.cssText    = `top:0;left:0;right:0;height:${t}px`;
+  $('shadeBot').style.cssText    = `bottom:0;left:0;right:0;height:${b}px`;
+  $('shadeLeft').style.cssText   = `top:${t}px;left:0;width:${l}px;height:${bh}px`;
+  $('shadeRight').style.cssText  = `top:${t}px;right:0;width:${r}px;height:${bh}px`;
 }
-$('cropCanvas').addEventListener('mousedown', e => { cropDragging = true; const r = e.target.getBoundingClientRect(); cropStart = { x: e.clientX - r.left, y: e.clientY - r.top }; });
-$('cropCanvas').addEventListener('touchstart', e => { e.preventDefault(); cropDragging = true; cropStart = getCropPos(e); }, { passive: false });
-document.addEventListener('mousemove', e => { if (!cropDragging) return; const r = $('cropCanvas').getBoundingClientRect(); cropEnd = { x: Math.min(Math.max(e.clientX - r.left, 0), r.width), y: Math.min(Math.max(e.clientY - r.top, 0), r.height) }; applyCropDrag(cropStart, cropEnd); });
-document.addEventListener('touchmove', e => { if (!cropDragging) return; e.preventDefault(); cropEnd = getCropPos(e); applyCropDrag(cropStart, cropEnd); }, { passive: false });
-document.addEventListener('mouseup', () => { cropDragging = false; });
-document.addEventListener('touchend', () => { cropDragging = false; });
+
+function syncInputsFromBox() {
+  $('cropL').value = Math.round(cropBoxL);
+  $('cropT').value = Math.round(cropBoxT);
+  $('cropR').value = Math.round(cropBoxR);
+  $('cropB').value = Math.round(cropBoxB);
+}
+
+function syncBoxFromInputs() {
+  cropBoxL = Math.max(0, parseInt($('cropL').value) || 0);
+  cropBoxT = Math.max(0, parseInt($('cropT').value) || 0);
+  cropBoxR = Math.max(0, parseInt($('cropR').value) || 0);
+  cropBoxB = Math.max(0, parseInt($('cropB').value) || 0);
+  positionCropBox();
+}
+
+// Input → box
+['cropL','cropT','cropR','cropB'].forEach(id => $(id).addEventListener('input', syncBoxFromInputs));
 
 // Presets
 document.querySelectorAll('.crop-preset-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     if (btn.dataset.clear) {
-      ['cropL','cropT','cropR','cropB'].forEach(id => $(id).value = 0);
+      cropBoxL = cropBoxT = cropBoxR = cropBoxB = 0;
     } else {
       const v = parseInt(btn.dataset.preset);
-      ['cropL','cropT','cropR','cropB'].forEach(id => $(id).value = v);
+      cropBoxL = cropBoxT = cropBoxR = cropBoxB = v;
     }
-    updateCropRect();
+    syncInputsFromBox();
+    positionCropBox();
   });
 });
+
+// ── Handle drag (mouse + touch) ────────────────────────────────
+function getEvtXY(e) {
+  if (e.touches && e.touches.length) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  if (e.changedTouches && e.changedTouches.length) return { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY };
+  return { x: e.clientX, y: e.clientY };
+}
+
+document.querySelectorAll('[data-handle]').forEach(el => {
+  const startDrag = e => {
+    e.stopPropagation(); e.preventDefault();
+    const { x, y } = getEvtXY(e);
+    cropHandleDrag = { handle: el.dataset.handle, startX: x, startY: y, startL: cropBoxL, startT: cropBoxT, startR: cropBoxR, startB: cropBoxB };
+  };
+  el.addEventListener('mousedown', startDrag);
+  el.addEventListener('touchstart', startDrag, { passive: false });
+});
+
+function onDragMove(e) {
+  if (!cropHandleDrag) return;
+  e.preventDefault();
+  const { x, y } = getEvtXY(e);
+  const { sx, sy } = getDisplayScale();
+  const dx = (x - cropHandleDrag.startX) / sx;
+  const dy = (y - cropHandleDrag.startY) / sy;
+  const h = cropHandleDrag.handle;
+  let l = cropHandleDrag.startL, t = cropHandleDrag.startT;
+  let r = cropHandleDrag.startR, b = cropHandleDrag.startB;
+
+  if (h === 'top'    || h === 'tl' || h === 'tr') t = Math.max(0, Math.min(cropNaturalH - b - 4, t + dy));
+  if (h === 'bottom' || h === 'bl' || h === 'br') b = Math.max(0, Math.min(cropNaturalH - t - 4, b - dy));
+  if (h === 'left'   || h === 'tl' || h === 'bl') l = Math.max(0, Math.min(cropNaturalW - r - 4, l + dx));
+  if (h === 'right'  || h === 'tr' || h === 'br') r = Math.max(0, Math.min(cropNaturalW - l - 4, r - dx));
+
+  cropBoxL = l; cropBoxT = t; cropBoxR = r; cropBoxB = b;
+  syncInputsFromBox();
+  positionCropBox();
+}
+function onDragEnd() { cropHandleDrag = null; }
+
+document.addEventListener('mousemove', onDragMove);
+document.addEventListener('touchmove', onDragMove, { passive: false });
+document.addEventListener('mouseup', onDragEnd);
+document.addEventListener('touchend', onDragEnd);
+
+// Reposition on window resize
+window.addEventListener('resize', () => { if ($('cropModal').classList.contains('show')) positionCropBox(); });
 
 $('cropClose').addEventListener('click', closeCropModal);
 $('cropCancel').addEventListener('click', closeCropModal);
 $('cropApply').addEventListener('click', () => {
   if (cropPageIdx === null) return;
-  const l = Math.max(0, parseInt($('cropL').value) || 0);
-  const t = Math.max(0, parseInt($('cropT').value) || 0);
-  const r = Math.max(0, parseInt($('cropR').value) || 0);
-  const b = Math.max(0, parseInt($('cropB').value) || 0);
-  if (l + r >= cropNaturalW || t + b >= cropNaturalH) { alert('Crop region is too large — nothing would remain.'); return; }
+  const l = Math.round(Math.max(0, cropBoxL));
+  const t = Math.round(Math.max(0, cropBoxT));
+  const r = Math.round(Math.max(0, cropBoxR));
+  const b = Math.round(Math.max(0, cropBoxB));
+  if (l + r >= cropNaturalW || t + b >= cropNaturalH) { alert('Crop area too large — nothing would remain.'); return; }
   pages[cropPageIdx].crop = (l === 0 && t === 0 && r === 0 && b === 0) ? null : { l, t, r, b };
   closeCropModal();
   renderGrid();
 });
 
-function closeCropModal() {
-  $('cropModal').classList.remove('show');
-  cropPageIdx = null;
-}
 
 // ── Export Format ──────────────────────────────────────────────
 [$('fmtPdf'), $('fmtPng')].forEach(btn => {
