@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>PDFKIT — Browser-Based PDF Tools</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a0a0f;--surface:#111118;--surface2:#18181f;--border:#2a2a38;
+  --accent:#c8ff00;--accent2:#ff6b35;--text:#f0f0f5;--muted:#6b6b80;
+  --success:#00ffa3;--error:#ff4444;--info:#5b8fff;
+}
+body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-height:100vh;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");opacity:.03;pointer-events:none;z-index:1000}
+body::after{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(200,255,0,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(200,255,0,.025) 1px,transparent 1px);background-size:60px 60px;pointer-events:none;z-index:0}
+.wrapper{position:relative;z-index:1;max-width:1000px;margin:0 auto;padding:0 24px}
+
+/* ── NAV ── */
+nav{display:flex;justify-content:space-between;align-items:center;padding:28px 0;border-bottom:1px solid var(--border)}
+.logo{font-size:1.25rem;font-weight:800;letter-spacing:-.02em;display:flex;align-items:center;gap:10px}
+.logo-dot{width:10px;height:10px;background:var(--accent);border-radius:50%;animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{transform:scale(1);box-shadow:0 0 0 0 rgba(200,255,0,.4)}50%{transform:scale(1.2);box-shadow:0 0 0 6px rgba(200,255,0,0)}}
+.nav-tag{font-family:'DM Mono',monospace;font-size:.7rem;color:var(--muted);letter-spacing:.08em;border:1px solid var(--border);padding:6px 12px;border-radius:20px}
+
+/* ── HERO ── */
+.hero{padding:72px 0 56px;text-align:center}
+.hero-eye{font-family:'DM Mono',monospace;font-size:.72rem;letter-spacing:.18em;color:var(--accent);text-transform:uppercase;margin-bottom:20px;animation:fadeUp .6s ease both}
+.hero h1{font-size:clamp(3rem,9vw,6.5rem);font-weight:800;line-height:.9;letter-spacing:-.04em;margin-bottom:22px;animation:fadeUp .6s .08s ease both}
+.hero h1 em{color:var(--accent);font-style:normal}
+.hero p{color:var(--muted);font-size:1.05rem;max-width:500px;margin:0 auto 36px;line-height:1.65;animation:fadeUp .6s .16s ease both}
+.hero-badges{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;animation:fadeUp .6s .22s ease both}
+.badge{font-family:'DM Mono',monospace;font-size:.68rem;color:var(--muted);border:1px solid var(--border);padding:6px 13px;border-radius:20px;display:flex;align-items:center;gap:6px}
+.badge-dot{width:6px;height:6px;border-radius:50%}
+
+@keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+
+/* ── DIVIDER ── */
+.section-label{font-family:'DM Mono',monospace;font-size:.68rem;letter-spacing:.16em;color:var(--muted);text-transform:uppercase;margin-bottom:20px;display:flex;align-items:center;gap:12px}
+.section-label::after{content:'';flex:1;height:1px;background:var(--border)}
+
+/* ── TOOL GRID ── */
+.tool-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin-bottom:20px;animation:fadeUp .7s .3s ease both}
+
+.tool-card{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:28px;cursor:pointer;text-decoration:none;color:var(--text);display:block;transition:all .25s;position:relative;overflow:hidden;group:true}
+.tool-card::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,transparent 60%,rgba(200,255,0,.04));opacity:0;transition:opacity .3s}
+.tool-card:hover{border-color:rgba(200,255,0,.35);transform:translateY(-3px);box-shadow:0 12px 32px rgba(0,0,0,.5)}
+.tool-card:hover::before{opacity:1}
+.tool-card:hover .card-arrow{transform:translate(3px,-3px);opacity:1}
+.tool-card:hover .card-icon{border-color:rgba(200,255,0,.3);background:rgba(200,255,0,.07)}
+
+/* Featured card — full width */
+.tool-card.featured{grid-column:1/-1;display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:24px;padding:30px 32px}
+.tool-card.featured:hover{border-color:rgba(200,255,0,.45)}
+
+.card-icon{width:52px;height:52px;border-radius:14px;border:1px solid var(--border);background:var(--surface2);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .25s}
+.card-icon svg{width:24px;height:24px}
+.card-icon.orange{background:rgba(255,107,53,.07);border-color:rgba(255,107,53,.2)}
+.card-icon.green{background:rgba(200,255,0,.06);border-color:rgba(200,255,0,.2)}
+.card-icon.blue{background:rgba(91,143,255,.07);border-color:rgba(91,143,255,.2)}
+.card-icon.lime{background:rgba(0,255,163,.06);border-color:rgba(0,255,163,.2)}
+.card-icon.purple{background:rgba(180,100,255,.07);border-color:rgba(180,100,255,.2)}
+
+.card-body{flex:1;min-width:0}
+.card-tag{font-family:'DM Mono',monospace;font-size:.62rem;letter-spacing:.1em;color:var(--muted);text-transform:uppercase;margin-bottom:8px}
+.card-name{font-size:1.35rem;font-weight:800;letter-spacing:-.03em;margin-bottom:8px;line-height:1}
+.card-desc{font-size:.82rem;color:var(--muted);line-height:1.55;font-family:'DM Mono',monospace}
+.card-features{display:flex;flex-wrap:wrap;gap:6px;margin-top:14px}
+.card-feat{font-family:'DM Mono',monospace;font-size:.6rem;color:var(--muted);border:1px solid var(--border);padding:3px 9px;border-radius:5px;background:var(--surface2)}
+
+.card-arrow{width:32px;height:32px;border-radius:9px;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;flex-shrink:0;opacity:.4;transition:all .25s;margin-left:auto}
+.card-arrow svg{width:15px;height:15px;stroke:var(--accent)}
+
+/* For non-featured cards */
+.tool-card:not(.featured) .card-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:18px}
+.tool-card:not(.featured) .card-name{font-size:1.15rem;margin-bottom:6px}
+.tool-card:not(.featured) .card-desc{font-size:.78rem}
+
+/* ── STATS BAR ── */
+.stats-bar{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px 28px;display:grid;grid-template-columns:repeat(4,1fr);gap:0;margin-bottom:48px;animation:fadeUp .7s .38s ease both}
+.stat-item{text-align:center;position:relative}
+.stat-item:not(:last-child)::after{content:'';position:absolute;right:0;top:50%;transform:translateY(-50%);width:1px;height:32px;background:var(--border)}
+.stat-val{font-size:1.5rem;font-weight:800;letter-spacing:-.04em;color:var(--accent)}
+.stat-lbl{font-family:'DM Mono',monospace;font-size:.62rem;color:var(--muted);text-transform:uppercase;margin-top:3px;letter-spacing:.08em}
+
+/* ── PRIVACY NOTE ── */
+.privacy-note{background:rgba(0,255,163,.04);border:1px solid rgba(0,255,163,.14);border-radius:14px;padding:18px 24px;display:flex;align-items:center;gap:14px;margin-bottom:48px;animation:fadeUp .7s .44s ease both}
+.privacy-icon{width:36px;height:36px;background:rgba(0,255,163,.1);border:1px solid rgba(0,255,163,.2);border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.privacy-icon svg{width:17px;height:17px;stroke:var(--success)}
+.privacy-text{font-family:'DM Mono',monospace;font-size:.75rem;color:var(--muted);line-height:1.55}
+.privacy-text strong{color:var(--success)}
+
+/* ── FOOTER ── */
+footer{border-top:1px solid var(--border);padding:28px 0;display:flex;justify-content:space-between;align-items:center;margin-bottom:32px}
+footer p{font-family:'DM Mono',monospace;font-size:.7rem;color:var(--muted)}
+footer span{color:var(--accent)}
+
+/* ── RESPONSIVE ── */
+@media(max-width:680px){
+  .wrapper{padding:0 14px}
+  .hero{padding:48px 0 36px}
+  .tool-grid{grid-template-columns:1fr}
+  .tool-card.featured{grid-column:auto;grid-template-columns:auto 1fr;padding:20px}
+  .card-arrow{display:none}
+  .stats-bar{grid-template-columns:repeat(2,1fr);gap:16px;padding:16px}
+  .stat-item::after{display:none}
+  footer{flex-direction:column;gap:8px;text-align:center}
+}
+@media(max-width:420px){
+  nav{padding:18px 0}
+  .nav-tag{display:none}
+  .hero h1{font-size:2.6rem}
+  .tool-card{padding:20px}
+  .tool-card.featured{padding:16px}
+  .stats-bar{grid-template-columns:1fr 1fr;gap:12px;padding:14px}
+}
+</style>
+</head>
+<body>
+<div class="wrapper">
+
+<nav>
+  <div class="logo"><div class="logo-dot"></div>PDFKIT</div>
+  <div class="nav-tag">5 TOOLS · 100% IN-BROWSER</div>
+</nav>
+
+<div class="hero">
+  <div class="hero-eye">// Browser-Based PDF Toolkit</div>
+  <h1>PDF tools.<br/><em>No uploads.</em></h1>
+  <p>A suite of professional PDF tools that run entirely in your browser. Your files never leave your device.</p>
+  <div class="hero-badges">
+    <div class="badge"><div class="badge-dot" style="background:var(--success)"></div>Zero server uploads</div>
+    <div class="badge"><div class="badge-dot" style="background:var(--accent)"></div>100% free</div>
+    <div class="badge"><div class="badge-dot" style="background:var(--info)"></div>No account needed</div>
+    <div class="badge"><div class="badge-dot" style="background:var(--accent2)"></div>Works offline</div>
+  </div>
+</div>
+
+<!-- Stats Bar -->
+<div class="stats-bar">
+  <div class="stat-item"><div class="stat-val">5</div><div class="stat-lbl">Tools</div></div>
+  <div class="stat-item"><div class="stat-val">0</div><div class="stat-lbl">Server uploads</div></div>
+  <div class="stat-item"><div class="stat-val">∞</div><div class="stat-lbl">Files processed</div></div>
+  <div class="stat-item"><div class="stat-val">Free</div><div class="stat-lbl">Always</div></div>
+</div>
+
+<div class="section-label">All Tools</div>
+
+<!-- Tool Grid -->
+<div class="tool-grid">
+
+  <!-- COMPRESSO — featured -->
+  <a class="tool-card featured" href="cmprss_v2.html">
+    <div class="card-icon orange">
+      <svg fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="#ff6b35"><path stroke-linecap="round" stroke-linejoin="round" d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9h4.5M15 9V4.5M15 9l5.25-5.25M15 15h4.5M15 15v4.5m0-4.5l5.25 5.25"/></svg>
+    </div>
+    <div class="card-body">
+      <div class="card-tag">COMPRESSO</div>
+      <div class="card-name">PDF Compressor</div>
+      <div class="card-desc">Re-renders every page at optimized JPEG quality to achieve real file size reduction. Supports batch compression with size targeting.</div>
+      <div class="card-features">
+        <span class="card-feat">Batch files</span>
+        <span class="card-feat">Size targeting</span>
+        <span class="card-feat">Quality control</span>
+        <span class="card-feat">ZIP download</span>
+      </div>
+    </div>
+    <div class="card-arrow"><svg fill="none" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 19.5l15-15m0 0H8.25m11.25 0v11.25"/></svg></div>
+  </a>
+
+  <!-- SPLITR -->
+  <a class="tool-card" href="split.html">
+    <div class="card-top">
+      <div class="card-icon green">
+        <svg fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="#c8ff00"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15"/></svg>
+      </div>
+      <div class="card-arrow"><svg fill="none" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 19.5l15-15m0 0H8.25m11.25 0v11.25"/></svg></div>
+    </div>
+    <div class="card-tag">SPLITR</div>
+    <div class="card-name">PDF Splitter</div>
+    <div class="card-desc">Extract every page from one or multiple PDFs as individual files. Export as separate PDFs or high-res PNGs.</div>
+    <div class="card-features">
+      <span class="card-feat">Multi-file</span>
+      <span class="card-feat">PDF or PNG</span>
+      <span class="card-feat">Custom order</span>
+      <span class="card-feat">ZIP output</span>
+    </div>
+  </a>
+
+  <!-- MERGR -->
+  <a class="tool-card" href="merge.html">
+    <div class="card-top">
+      <div class="card-icon blue">
+        <svg fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="#5b8fff"><path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5"/></svg>
+      </div>
+      <div class="card-arrow"><svg fill="none" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 19.5l15-15m0 0H8.25m11.25 0v11.25"/></svg></div>
+    </div>
+    <div class="card-tag">MERGR</div>
+    <div class="card-name">PDF Merger</div>
+    <div class="card-desc">Combine multiple PDFs into one. Drag to reorder before merging. Live page preview strip shows the final order.</div>
+    <div class="card-features">
+      <span class="card-feat">Drag reorder</span>
+      <span class="card-feat">Live preview</span>
+      <span class="card-feat">Custom filename</span>
+    </div>
+  </a>
+
+  <!-- PAGR -->
+  <a class="tool-card" href="pagr.html" style="grid-column:1/-1">
+    <div class="card-top" style="margin-bottom:16px">
+      <div style="display:flex;align-items:center;gap:14px">
+        <div class="card-icon lime">
+          <svg fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="#00ffa3"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10"/></svg>
+        </div>
+        <div>
+          <div class="card-tag">PAGR</div>
+          <div class="card-name" style="font-size:1.15rem">PDF Page Editor</div>
+        </div>
+      </div>
+      <div class="card-arrow"><svg fill="none" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 19.5l15-15m0 0H8.25m11.25 0v11.25"/></svg></div>
+    </div>
+    <div class="card-desc" style="margin-bottom:14px">The most powerful tool in the kit. Visually rearrange, delete, rotate, and crop individual pages — then export as a polished PDF or high-res PNGs packed in a ZIP.</div>
+    <div class="card-features">
+      <span class="card-feat">Rearrange pages</span>
+      <span class="card-feat">Delete &amp; restore</span>
+      <span class="card-feat">Rotate ±90° / 180°</span>
+      <span class="card-feat">Crop with drag</span>
+      <span class="card-feat">PDF or PNG export</span>
+      <span class="card-feat">Visual thumbnails</span>
+    </div>
+  </a>
+
+</div>
+
+<!-- Privacy Note -->
+<div class="privacy-note">
+  <div class="privacy-icon"><svg fill="none" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/></svg></div>
+  <div class="privacy-text"><strong>Your files never leave your device.</strong> Every tool in this kit runs entirely in your browser using PDF.js, PDF-lib, and JSZip. No data is sent to any server. No analytics. No tracking. Open the page, use the tool, close the tab — that's it.</div>
+</div>
+
+<footer>
+  <p>© 2026 PDFKIT — Built with <span>PDF.js · PDF-lib · JSZip</span></p>
+  <p>100% free · No server · No account</p>
+</footer>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,1058 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>PAGR — PDF Page Editor</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a0a0f;--surface:#111118;--surface2:#18181f;--surface3:#1e1e28;
+  --border:#2a2a38;--accent:#c8ff00;--accent2:#ff6b35;--text:#f0f0f5;
+  --muted:#6b6b80;--success:#00ffa3;--error:#ff4444;--info:#5b8fff;
+}
+body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-height:100vh;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");opacity:.03;pointer-events:none;z-index:1000}
+body::after{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(200,255,0,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(200,255,0,.025) 1px,transparent 1px);background-size:60px 60px;pointer-events:none;z-index:0}
+.wrapper{position:relative;z-index:1;max-width:1100px;margin:0 auto;padding:0 24px}
+
+/* ── NAV ── */
+nav{display:flex;justify-content:space-between;align-items:center;padding:28px 0;border-bottom:1px solid var(--border)}
+.logo{font-size:1.25rem;font-weight:800;letter-spacing:-.02em;display:flex;align-items:center;gap:10px}
+.logo-dot{width:10px;height:10px;background:var(--accent);border-radius:50%;animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{transform:scale(1);box-shadow:0 0 0 0 rgba(200,255,0,.4)}50%{transform:scale(1.2);box-shadow:0 0 0 6px rgba(200,255,0,0)}}
+.nav-tag{font-family:'DM Mono',monospace;font-size:.7rem;color:var(--muted);letter-spacing:.08em;border:1px solid var(--border);padding:6px 12px;border-radius:20px}
+
+/* ── HERO ── */
+.hero{padding:48px 0 36px;text-align:center;animation:fadeUp .7s ease both}
+@keyframes fadeUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
+.hero-eye{font-family:'DM Mono',monospace;font-size:.72rem;letter-spacing:.18em;color:var(--accent);text-transform:uppercase;margin-bottom:16px}
+.hero h1{font-size:clamp(2.2rem,6vw,4rem);font-weight:800;line-height:.95;letter-spacing:-.04em;margin-bottom:14px}
+.hero h1 span{color:var(--accent)}
+.hero p{color:var(--muted);font-size:.95rem;max-width:480px;margin:0 auto;line-height:1.6}
+
+/* ── UPLOAD CARD ── */
+.upload-card{background:var(--surface);border:1px solid var(--border);border-radius:20px;overflow:hidden;animation:fadeUp .7s .1s ease both;margin-bottom:24px}
+.drop-zone{padding:56px 40px;display:flex;flex-direction:column;align-items:center;gap:16px;cursor:pointer;position:relative;transition:background .3s;min-height:220px;justify-content:center}
+.drop-zone::before{content:'';position:absolute;inset:12px;border:2px dashed var(--border);border-radius:12px;transition:border-color .3s;pointer-events:none}
+.drop-zone.dragover{background:rgba(200,255,0,.04)}
+.drop-zone.dragover::before{border-color:rgba(200,255,0,.4);border-style:solid}
+#fileInput{display:none}
+.drop-icon{width:60px;height:60px;background:var(--surface2);border:1px solid var(--border);border-radius:14px;display:flex;align-items:center;justify-content:center;transition:all .3s}
+.drop-zone:hover .drop-icon,.drop-zone.dragover .drop-icon{border-color:var(--accent);background:rgba(200,255,0,.08);transform:scale(1.06)}
+.drop-icon svg{width:28px;height:28px;stroke:var(--muted);transition:stroke .3s}
+.drop-zone:hover .drop-icon svg,.drop-zone.dragover .drop-icon svg{stroke:var(--accent)}
+.drop-title{font-size:1.05rem;font-weight:700}
+.drop-sub{font-family:'DM Mono',monospace;font-size:.74rem;color:var(--muted)}
+.browse-btn{background:var(--accent);color:#0a0a0f;border:none;padding:10px 24px;border-radius:8px;font-family:'Syne',sans-serif;font-size:.84rem;font-weight:700;cursor:pointer;transition:all .2s}
+.browse-btn:hover{background:#d4ff1a;transform:translateY(-1px)}
+
+/* ── EDITOR LAYOUT ── */
+#editorSection{display:none}
+#editorSection.show{display:block;animation:fadeUp .4s ease}
+
+.editor-topbar{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:16px 24px;margin-bottom:16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.file-info{display:flex;align-items:center;gap:10px;flex:1;min-width:0}
+.file-info-icon{width:34px;height:34px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.file-info-icon svg{width:17px;height:17px;stroke:var(--accent2)}
+.file-info-meta{min-width:0}
+.file-info-name{font-size:.88rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.file-info-sub{font-family:'DM Mono',monospace;font-size:.67rem;color:var(--muted);margin-top:1px}
+.topbar-sep{width:1px;height:28px;background:var(--border);flex-shrink:0}
+.topbar-stat{text-align:center;flex-shrink:0}
+.topbar-stat-v{font-size:1rem;font-weight:800;color:var(--accent)}
+.topbar-stat-l{font-family:'DM Mono',monospace;font-size:.6rem;color:var(--muted);text-transform:uppercase;margin-top:1px}
+.change-file-btn{background:none;border:1px solid var(--border);color:var(--muted);padding:8px 14px;border-radius:8px;font-family:'DM Mono',monospace;font-size:.68rem;cursor:pointer;transition:all .2s;flex-shrink:0}
+.change-file-btn:hover{border-color:var(--text);color:var(--text)}
+
+/* ── TOOLBAR ── */
+.toolbar{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:14px 20px;margin-bottom:16px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.toolbar-group{display:flex;align-items:center;gap:6px}
+.toolbar-sep{width:1px;height:26px;background:var(--border);margin:0 4px;flex-shrink:0}
+.toolbar-label{font-family:'DM Mono',monospace;font-size:.62rem;color:var(--muted);letter-spacing:.1em;white-space:nowrap}
+.tb-btn{background:var(--surface2);border:1px solid var(--border);color:var(--muted);padding:8px 14px;border-radius:8px;font-family:'Syne',sans-serif;font-size:.78rem;font-weight:600;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:7px;white-space:nowrap}
+.tb-btn svg{width:14px;height:14px;stroke:currentColor;flex-shrink:0}
+.tb-btn:hover{border-color:var(--accent);color:var(--accent);background:rgba(200,255,0,.06)}
+.tb-btn:disabled{opacity:.3;cursor:not-allowed;pointer-events:none}
+.tb-btn.danger:hover{border-color:var(--error);color:var(--error);background:rgba(255,68,68,.06)}
+.tb-btn.active-tool{border-color:var(--accent);color:var(--accent);background:rgba(200,255,0,.08)}
+.sel-count{font-family:'DM Mono',monospace;font-size:.68rem;color:var(--accent);background:rgba(200,255,0,.1);border:1px solid rgba(200,255,0,.2);padding:4px 10px;border-radius:6px;display:none}
+.sel-count.show{display:block}
+
+/* ── PAGE GRID ── */
+.page-grid-wrap{background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden;margin-bottom:16px}
+.pg-grid-header{padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:rgba(200,255,0,.02)}
+.pg-grid-title{font-family:'DM Mono',monospace;font-size:.7rem;letter-spacing:.1em;color:var(--accent)}
+.pg-grid-hint{font-family:'DM Mono',monospace;font-size:.62rem;color:var(--muted)}
+.page-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:14px;padding:20px}
+
+/* ── PAGE CARD ── */
+.pg-card{position:relative;border-radius:10px;border:2px solid var(--border);background:var(--surface2);cursor:pointer;transition:border-color .2s,transform .2s,box-shadow .2s;user-select:none}
+.pg-card:hover{border-color:rgba(200,255,0,.35);transform:translateY(-2px);box-shadow:0 8px 20px rgba(0,0,0,.4)}
+.pg-card.selected{border-color:var(--accent);box-shadow:0 0 0 3px rgba(200,255,0,.15)}
+.pg-card.deleted{opacity:.25;border-color:var(--error);pointer-events:none}
+.pg-card.dragging{opacity:.35;transform:scale(.96)}
+.pg-card.drag-over{border-color:var(--accent);border-style:dashed}
+.pg-canvas-wrap{width:100%;aspect-ratio:3/4;overflow:hidden;border-radius:8px 8px 0 0;background:#000;display:flex;align-items:center;justify-content:center;position:relative}
+.pg-canvas-wrap canvas{width:100%;height:100%;object-fit:contain;display:block}
+.pg-rotation-indicator{position:absolute;top:5px;right:5px;background:rgba(200,255,0,.9);color:#0a0a0f;font-family:'DM Mono',monospace;font-size:.55rem;font-weight:700;padding:2px 5px;border-radius:4px;display:none}
+.pg-rotation-indicator.show{display:block}
+.pg-crop-indicator{position:absolute;top:5px;left:5px;background:rgba(91,143,255,.9);color:#fff;font-family:'DM Mono',monospace;font-size:.55rem;font-weight:700;padding:2px 5px;border-radius:4px;display:none}
+.pg-crop-indicator.show{display:block}
+.pg-footer{padding:7px 9px;display:flex;align-items:center;justify-content:space-between}
+.pg-num{font-family:'DM Mono',monospace;font-size:.65rem;color:var(--muted)}
+.pg-badge-wrap{display:flex;gap:4px}
+.pg-del-overlay{position:absolute;inset:0;background:rgba(255,68,68,.15);border-radius:8px;display:flex;align-items:center;justify-content:center;display:none}
+.pg-card.deleted .pg-del-overlay{display:flex}
+.pg-del-overlay svg{width:28px;height:28px;stroke:var(--error);opacity:.7}
+.pg-select-check{position:absolute;top:7px;left:7px;width:18px;height:18px;border-radius:4px;border:2px solid var(--border);background:rgba(10,10,15,.7);transition:all .2s;display:flex;align-items:center;justify-content:center}
+.pg-card.selected .pg-select-check{border-color:var(--accent);background:var(--accent)}
+.pg-select-check svg{width:10px;height:10px;stroke:#0a0a0f;opacity:0;transition:opacity .15s}
+.pg-card.selected .pg-select-check svg{opacity:1}
+
+/* ── CROP MODAL ── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:500;display:none;align-items:center;justify-content:center;padding:20px}
+.modal-overlay.show{display:flex;animation:fadeIn .2s ease}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:20px;width:100%;max-width:700px;overflow:hidden;animation:slideUp .25s ease}
+@keyframes slideUp{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
+.modal-header{padding:20px 24px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.modal-title{font-size:1rem;font-weight:700}
+.modal-title span{color:var(--accent)}
+.modal-close{background:none;border:none;color:var(--muted);cursor:pointer;width:32px;height:32px;border-radius:7px;display:flex;align-items:center;justify-content:center;transition:all .2s}
+.modal-close:hover{background:rgba(255,68,68,.1);color:var(--error)}
+.modal-close svg{width:16px;height:16px;stroke:currentColor}
+.modal-body{padding:20px 24px}
+.crop-layout{display:grid;grid-template-columns:1fr 240px;gap:20px;align-items:start}
+.crop-canvas-wrap{position:relative;background:#000;border-radius:10px;overflow:hidden;border:1px solid var(--border)}
+#cropCanvas{display:block;width:100%;cursor:crosshair}
+.crop-rect{position:absolute;border:2px solid var(--accent);background:rgba(200,255,0,.06);pointer-events:none;display:none}
+.crop-rect.show{display:block}
+.crop-handle{position:absolute;width:8px;height:8px;background:var(--accent);border-radius:2px}
+.crop-controls{display:flex;flex-direction:column;gap:12px}
+.crop-input-group{display:flex;flex-direction:column;gap:6px}
+.crop-label{font-family:'DM Mono',monospace;font-size:.64rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase}
+.crop-inputs-row{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.crop-num-input{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-family:'DM Mono',monospace;font-size:.82rem;outline:none;transition:border-color .2s;width:100%}
+.crop-num-input:focus{border-color:var(--accent)}
+.crop-hint{font-family:'DM Mono',monospace;font-size:.62rem;color:var(--muted);line-height:1.5}
+.crop-presets{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.crop-preset-btn{background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:7px 6px;cursor:pointer;font-family:'DM Mono',monospace;font-size:.64rem;color:var(--muted);text-align:center;transition:all .2s}
+.crop-preset-btn:hover{border-color:rgba(200,255,0,.4);color:var(--accent)}
+.modal-footer{padding:16px 24px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end}
+.modal-cancel-btn{background:none;border:1px solid var(--border);color:var(--muted);padding:10px 18px;border-radius:9px;font-family:'Syne',sans-serif;font-size:.85rem;cursor:pointer;transition:all .2s}
+.modal-cancel-btn:hover{border-color:var(--text);color:var(--text)}
+.modal-apply-btn{background:var(--accent);color:#0a0a0f;border:none;padding:10px 22px;border-radius:9px;font-family:'Syne',sans-serif;font-size:.88rem;font-weight:800;cursor:pointer;transition:all .2s}
+.modal-apply-btn:hover{background:#d4ff1a;transform:translateY(-1px)}
+
+/* ── EXPORT PANEL ── */
+.export-panel{background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden;margin-bottom:24px}
+.export-header{padding:16px 20px;border-bottom:1px solid var(--border);background:rgba(200,255,0,.02);display:flex;align-items:center;justify-content:space-between}
+.export-title{font-family:'DM Mono',monospace;font-size:.72rem;letter-spacing:.1em;color:var(--accent)}
+.export-body{padding:20px}
+.export-fmt-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px}
+.fmt-btn{background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:14px;cursor:pointer;transition:all .2s;font-family:'Syne',sans-serif;color:var(--text);text-align:left;display:flex;align-items:center;gap:12px}
+.fmt-btn:hover{border-color:rgba(200,255,0,.4);background:rgba(200,255,0,.05)}
+.fmt-btn.active{border-color:var(--accent);background:rgba(200,255,0,.08)}
+.fmt-icon{width:36px;height:36px;background:var(--surface);border:1px solid var(--border);border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.fmt-btn.active .fmt-icon{border-color:rgba(200,255,0,.3);background:rgba(200,255,0,.06)}
+.fmt-icon svg{width:18px;height:18px}
+.fmt-text .fmt-title{font-size:.88rem;font-weight:700}
+.fmt-text .fmt-desc{font-family:'DM Mono',monospace;font-size:.62rem;color:var(--muted);margin-top:2px}
+.fmt-btn.active .fmt-text .fmt-title{color:var(--accent)}
+.png-dpi-wrap{display:none;margin-bottom:18px}
+.png-dpi-wrap.show{display:block}
+.s-label{font-family:'DM Mono',monospace;font-size:.66rem;letter-spacing:.12em;color:var(--muted);text-transform:uppercase;margin-bottom:10px}
+.dpi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.dpi-btn{background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:10px 6px;cursor:pointer;text-align:center;transition:all .2s;font-family:'Syne',sans-serif;color:var(--text)}
+.dpi-btn:hover{border-color:rgba(200,255,0,.35)}
+.dpi-btn.active{border-color:var(--accent);background:rgba(200,255,0,.08);color:var(--accent)}
+.dpi-val{font-size:.9rem;font-weight:700;display:block}
+.dpi-lbl{font-family:'DM Mono',monospace;font-size:.6rem;color:var(--muted);display:block;margin-top:2px}
+.dpi-btn.active .dpi-lbl{color:rgba(200,255,0,.5)}
+.export-actions{display:flex;gap:10px;align-items:center;justify-content:flex-end}
+.export-info{font-family:'DM Mono',monospace;font-size:.68rem;color:var(--muted);flex:1}
+.export-info span{color:var(--accent)}
+.process-btn{background:var(--accent);color:#0a0a0f;border:none;padding:13px 28px;border-radius:10px;font-family:'Syne',sans-serif;font-size:.92rem;font-weight:800;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:9px;position:relative;overflow:hidden}
+.process-btn::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,transparent 40%,rgba(255,255,255,.15) 50%,transparent 60%);transform:translateX(-100%);transition:transform .4s ease}
+.process-btn:hover::before{transform:translateX(100%)}
+.process-btn:hover{background:#d4ff1a;transform:translateY(-2px);box-shadow:0 8px 24px rgba(200,255,0,.28)}
+.process-btn:disabled{opacity:.4;cursor:not-allowed;transform:none;box-shadow:none}
+.process-btn svg{width:16px;height:16px}
+
+/* ── PROGRESS ── */
+.prog-area{display:none;padding:20px;border-top:1px solid var(--border)}
+.prog-area.show{display:block;animation:fadeDown .3s ease}
+@keyframes fadeDown{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
+.prog-label{font-family:'DM Mono',monospace;font-size:.7rem;color:var(--muted);margin-bottom:8px;letter-spacing:.08em}
+.prog-bg{background:var(--surface2);border-radius:6px;height:6px;overflow:hidden;border:1px solid var(--border)}
+.prog-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:6px;width:0%;transition:width .3s ease}
+.prog-row{display:flex;justify-content:space-between;margin-top:7px;font-family:'DM Mono',monospace;font-size:.68rem;color:var(--muted)}
+
+/* ── RESULT ── */
+.result-area{display:none;padding:20px;border-top:1px solid var(--border);background:rgba(0,255,163,.02)}
+.result-area.show{display:block;animation:fadeUp .4s ease}
+.res-head{display:flex;align-items:center;gap:12px;margin-bottom:18px}
+.res-badge{width:32px;height:32px;background:rgba(0,255,163,.1);border:1px solid rgba(0,255,163,.28);border-radius:50%;display:flex;align-items:center;justify-content:center}
+.res-badge svg{width:14px;height:14px;stroke:var(--success)}
+.res-title{font-size:.92rem;font-weight:700;color:var(--success)}
+.res-sub{font-family:'DM Mono',monospace;font-size:.68rem;color:var(--muted);margin-top:2px}
+.res-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
+.stat{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center}
+.stat-lbl{font-family:'DM Mono',monospace;font-size:.6rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:5px}
+.stat-v{font-size:1.1rem;font-weight:800;letter-spacing:-.02em}
+.c-green{color:var(--accent)}.c-orange{color:var(--accent2)}.c-lime{color:var(--success)}.c-blue{color:var(--info)}
+.dl-btn{width:100%;background:linear-gradient(135deg,var(--success),#00cc82);color:#0a0a0f;border:none;padding:14px;border-radius:11px;font-family:'Syne',sans-serif;font-size:.92rem;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:all .2s}
+.dl-btn:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,255,163,.22)}
+.dl-btn svg{width:16px;height:16px}
+
+/* ── FEATURES ── */
+.features{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:56px;animation:fadeUp .7s .3s ease both}
+.feat{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px}
+.feat-icon{width:32px;height:32px;background:var(--surface2);border-radius:7px;display:flex;align-items:center;justify-content:center;margin-bottom:10px}
+.feat-icon svg{width:16px;height:16px}
+.feat-title{font-size:.82rem;font-weight:700;margin-bottom:5px}
+.feat-desc{font-size:.72rem;color:var(--muted);line-height:1.5;font-family:'DM Mono',monospace}
+footer{border-top:1px solid var(--border);padding:22px 0;display:flex;justify-content:space-between;align-items:center;margin-bottom:24px}
+footer p{font-family:'DM Mono',monospace;font-size:.7rem;color:var(--muted)}
+footer span{color:var(--accent)}
+
+@media(max-width:900px){
+  .crop-layout{grid-template-columns:1fr}
+  .features{grid-template-columns:repeat(2,1fr)}
+}
+@media(max-width:720px){
+  .wrapper{padding:0 14px}
+  .hero{padding:32px 0 24px}
+  .hero h1{font-size:clamp(1.9rem,8vw,3rem)}
+  .drop-zone{padding:36px 20px}
+  .editor-topbar{padding:12px 14px;gap:8px;flex-wrap:wrap}
+  .topbar-sep{display:none}
+  .topbar-stat{display:none}
+  .toolbar{padding:10px 12px;gap:6px}
+  .toolbar-sep{display:none}
+  .toolbar-label{display:none}
+  .tb-btn{padding:7px 10px;font-size:.74rem}
+  .tb-btn svg{width:13px;height:13px}
+  .page-grid{grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:10px;padding:14px}
+  .export-fmt-grid{grid-template-columns:1fr}
+  .export-body{padding:14px}
+  .export-actions{flex-direction:column;align-items:stretch;gap:10px}
+  .export-info{text-align:center}
+  .process-btn{justify-content:center}
+  .res-stats{grid-template-columns:1fr 1fr}
+  .modal{border-radius:14px}
+  .modal-body{padding:14px}
+  .crop-controls{gap:10px}
+  .pg-grid-header{padding:10px 14px;flex-wrap:wrap;gap:6px}
+}
+@media(max-width:480px){
+  .wrapper{padding:0 10px}
+  nav{padding:18px 0}
+  .logo{font-size:1.1rem}
+  .nav-tag{display:none}
+  .hero{padding:24px 0 20px}
+  .hero p{font-size:.88rem}
+  .drop-zone{padding:28px 14px;min-height:170px}
+  .editor-topbar{padding:10px 12px}
+  .file-info-name{font-size:.8rem}
+  .toolbar{padding:8px 10px;gap:4px}
+  .tb-btn{padding:6px 8px;font-size:.7rem;gap:4px}
+  .page-grid{grid-template-columns:repeat(auto-fill,minmax(85px,1fr));gap:8px;padding:10px}
+  .pg-footer{padding:5px 7px}
+  .pg-num{font-size:.6rem}
+  .features{grid-template-columns:1fr}
+  .res-stats{grid-template-columns:1fr}
+  .modal-overlay{padding:10px}
+  .modal-header{padding:14px 16px 12px}
+  .modal-footer{padding:12px 16px;gap:8px}
+  .modal-apply-btn,.modal-cancel-btn{padding:9px 16px;font-size:.82rem}
+  .crop-inputs-row{grid-template-columns:1fr 1fr}
+  .crop-presets{grid-template-columns:repeat(2,1fr)}
+  footer{flex-direction:column;gap:6px;text-align:center;padding:16px 0}
+}
+</style>
+</head>
+<body>
+<div class="wrapper">
+
+<nav>
+  <div class="logo"><div class="logo-dot"></div>PAGR</div>
+  <div class="nav-tag">PDF PAGE EDITOR v1.0</div>
+</nav>
+
+<div class="hero">
+  <div class="hero-eye">// VISUAL PAGE CONTROL ENGINE</div>
+  <h1>Edit.<br/><span>Every Page.</span></h1>
+  <p>Rearrange, delete, rotate, and crop individual pages of any PDF — then export as a polished PDF or high-res PNGs.</p>
+</div>
+
+<!-- Upload -->
+<div class="upload-card" id="uploadCard">
+  <div class="drop-zone" id="dropZone">
+    <input type="file" id="fileInput" accept=".pdf"/>
+    <div class="drop-icon">
+      <svg fill="none" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/></svg>
+    </div>
+    <div class="drop-title">Drop your PDF here</div>
+    <div class="drop-sub">Single PDF · 100% in-browser · No uploads</div>
+    <button class="browse-btn" id="browseBtn">Choose File</button>
+  </div>
+</div>
+
+<!-- Editor -->
+<div id="editorSection">
+
+  <!-- Top bar -->
+  <div class="editor-topbar">
+    <div class="file-info">
+      <div class="file-info-icon"><svg fill="none" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/></svg></div>
+      <div class="file-info-meta">
+        <div class="file-info-name" id="topFileName">—</div>
+        <div class="file-info-sub" id="topFileSub">—</div>
+      </div>
+    </div>
+    <div class="topbar-sep"></div>
+    <div class="topbar-stat"><div class="topbar-stat-v" id="statTotal">0</div><div class="topbar-stat-l">Total</div></div>
+    <div class="topbar-stat"><div class="topbar-stat-v" id="statActive" style="color:var(--success)">0</div><div class="topbar-stat-l">Active</div></div>
+    <div class="topbar-stat"><div class="topbar-stat-v" id="statDeleted" style="color:var(--error)">0</div><div class="topbar-stat-l">Deleted</div></div>
+    <div class="topbar-sep"></div>
+    <button class="change-file-btn" id="changeFileBtn">Change File</button>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <div class="toolbar-group">
+      <span class="toolbar-label">SELECT</span>
+      <button class="tb-btn" id="btnSelectAll" title="Select all pages">
+        <svg fill="none" viewBox="0 0 24 24" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg> All
+      </button>
+      <button class="tb-btn" id="btnDeselectAll" title="Deselect all">
+        <svg fill="none" viewBox="0 0 24 24" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg> None
+      </button>
+    </div>
+    <div class="toolbar-sep"></div>
+    <div class="toolbar-group">
+      <span class="toolbar-label">ROTATE</span>
+      <button class="tb-btn" id="btnRotCCW" title="Rotate selected 90° counter-clockwise">
+        <svg fill="none" viewBox="0 0 24 24" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3"/></svg> −90°
+      </button>
+      <button class="tb-btn" id="btnRotCW" title="Rotate selected 90° clockwise">
+        <svg fill="none" viewBox="0 0 24 24" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M15 15l6-6m0 0l-6-6m6 6H9a6 6 0 000 12h3"/></svg> +90°
+      </button>
+      <button class="tb-btn" id="btnRot180" title="Rotate selected 180°">
+        <svg fill="none" viewBox="0 0 24 24" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"/></svg> 180°
+      </button>
+    </div>
+    <div class="toolbar-sep"></div>
+    <div class="toolbar-group">
+      <span class="toolbar-label">CROP</span>
+      <button class="tb-btn" id="btnCrop" title="Crop a single page">
+        <svg fill="none" viewBox="0 0 24 24" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M7.5 3.75H6A2.25 2.25 0 003.75 6v1.5M16.5 3.75H18A2.25 2.25 0 0120.25 6v1.5m0 9V18A2.25 2.25 0 0118 20.25h-1.5m-9 0H6A2.25 2.25 0 013.75 18v-1.5M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg> Crop Page
+      </button>
+    </div>
+    <div class="toolbar-sep"></div>
+    <div class="toolbar-group">
+      <span class="toolbar-label">DELETE</span>
+      <button class="tb-btn danger" id="btnDelete" title="Delete selected pages">
+        <svg fill="none" viewBox="0 0 24 24" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg> Delete
+      </button>
+      <button class="tb-btn" id="btnRestore" title="Restore deleted pages">
+        <svg fill="none" viewBox="0 0 24 24" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3"/></svg> Restore
+      </button>
+    </div>
+    <div class="toolbar-sep"></div>
+    <span class="sel-count" id="selCount">0 selected</span>
+  </div>
+
+  <!-- Page Grid -->
+  <div class="page-grid-wrap">
+    <div class="pg-grid-header">
+      <span class="pg-grid-title" id="gridTitle">PAGES</span>
+      <span class="pg-grid-hint">Click to select · Drag to reorder</span>
+    </div>
+    <div class="page-grid" id="pageGrid"></div>
+  </div>
+
+  <!-- Export Panel -->
+  <div class="export-panel">
+    <div class="export-header">
+      <span class="export-title">— EXPORT</span>
+    </div>
+    <div class="export-body">
+      <div class="export-fmt-grid">
+        <button class="fmt-btn active" id="fmtPdf" data-fmt="pdf">
+          <div class="fmt-icon"><svg fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="#ff6b35"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/></svg></div>
+          <div class="fmt-text"><div class="fmt-title">PDF</div><div class="fmt-desc">Single edited PDF file</div></div>
+        </button>
+        <button class="fmt-btn" id="fmtPng" data-fmt="png">
+          <div class="fmt-icon"><svg fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="#5b8fff"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"/></svg></div>
+          <div class="fmt-text"><div class="fmt-title">PNG Images</div><div class="fmt-desc">Each page as .png in a ZIP</div></div>
+        </button>
+      </div>
+      <div class="png-dpi-wrap" id="pngDpiWrap">
+        <div class="s-label">— PNG Resolution</div>
+        <div class="dpi-grid">
+          <button class="dpi-btn" data-scale="1.0"><span class="dpi-val">72 DPI</span><span class="dpi-lbl">Screen</span></button>
+          <button class="dpi-btn active" data-scale="2.0"><span class="dpi-val">150 DPI</span><span class="dpi-lbl">Standard</span></button>
+          <button class="dpi-btn" data-scale="3.0"><span class="dpi-val">300 DPI</span><span class="dpi-lbl">Print</span></button>
+        </div>
+      </div>
+      <div class="export-actions">
+        <div class="export-info" id="exportInfo">Ready to export</div>
+        <button class="process-btn" id="processBtn">
+          <svg fill="none" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
+          <span id="processBtnLabel">Export PDF</span>
+        </button>
+      </div>
+    </div>
+    <div class="prog-area" id="progArea">
+      <div class="prog-label" id="progLabel">PROCESSING...</div>
+      <div class="prog-bg"><div class="prog-fill" id="progFill"></div></div>
+      <div class="prog-row"><span id="progStep">—</span><span id="progPct">0%</span></div>
+    </div>
+    <div class="result-area" id="resultArea">
+      <div class="res-head">
+        <div class="res-badge"><svg fill="none" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg></div>
+        <div><div class="res-title">Export Complete</div><div class="res-sub" id="resSub">—</div></div>
+      </div>
+      <div class="res-stats">
+        <div class="stat"><div class="stat-lbl">Pages Exported</div><div class="stat-v c-green" id="rPages">—</div></div>
+        <div class="stat"><div class="stat-lbl">Rotations Applied</div><div class="stat-v c-blue" id="rRots">—</div></div>
+        <div class="stat"><div class="stat-lbl">File Size</div><div class="stat-v c-orange" id="rSize">—</div></div>
+      </div>
+      <button class="dl-btn" id="dlBtn">
+        <svg fill="none" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
+        <span id="dlLabel">Download</span>
+      </button>
+    </div>
+  </div>
+
+</div><!-- /editorSection -->
+
+<!-- Crop Modal -->
+<div class="modal-overlay" id="cropModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Crop Page — <span id="cropPageLabel">p1</span></div>
+      <button class="modal-close" id="cropClose"><svg fill="none" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="crop-layout">
+        <div>
+          <div class="crop-canvas-wrap" id="cropCanvasWrap">
+            <canvas id="cropCanvas"></canvas>
+            <div class="crop-rect" id="cropRect"></div>
+          </div>
+          <div style="margin-top:8px;font-family:'DM Mono',monospace;font-size:.62rem;color:var(--muted)">Drag on the preview to draw a crop region</div>
+        </div>
+        <div class="crop-controls">
+          <div class="crop-input-group">
+            <div class="crop-label">Crop Region (px)</div>
+            <div class="crop-inputs-row">
+              <div><div style="font-family:'DM Mono',monospace;font-size:.6rem;color:var(--muted);margin-bottom:3px">LEFT</div><input class="crop-num-input" id="cropL" type="number" min="0" value="0"/></div>
+              <div><div style="font-family:'DM Mono',monospace;font-size:.6rem;color:var(--muted);margin-bottom:3px">TOP</div><input class="crop-num-input" id="cropT" type="number" min="0" value="0"/></div>
+            </div>
+            <div class="crop-inputs-row" style="margin-top:6px">
+              <div><div style="font-family:'DM Mono',monospace;font-size:.6rem;color:var(--muted);margin-bottom:3px">RIGHT</div><input class="crop-num-input" id="cropR" type="number" min="0" value="0"/></div>
+              <div><div style="font-family:'DM Mono',monospace;font-size:.6rem;color:var(--muted);margin-bottom:3px">BOTTOM</div><input class="crop-num-input" id="cropB" type="number" min="0" value="0"/></div>
+            </div>
+          </div>
+          <div class="crop-input-group">
+            <div class="crop-label">Quick Presets</div>
+            <div class="crop-presets">
+              <button class="crop-preset-btn" data-preset="10">Trim 10px</button>
+              <button class="crop-preset-btn" data-preset="20">Trim 20px</button>
+              <button class="crop-preset-btn" data-preset="40">Trim 40px</button>
+              <button class="crop-preset-btn" data-clear="1">Clear</button>
+            </div>
+          </div>
+          <div class="crop-hint">Values are pixels on the <strong style="color:var(--text)">rendered page</strong>. Crop removes a margin from each side.</div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="modal-cancel-btn" id="cropCancel">Cancel</button>
+      <button class="modal-apply-btn" id="cropApply">Apply Crop</button>
+    </div>
+  </div>
+</div>
+
+<div class="features">
+  <div class="feat">
+    <div class="feat-icon"><svg fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="#c8ff00"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z"/></svg></div>
+    <div class="feat-title">Rearrange Pages</div>
+    <div class="feat-desc">Drag thumbnails to reorder pages in any sequence before exporting.</div>
+  </div>
+  <div class="feat">
+    <div class="feat-icon"><svg fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="#ff6b35"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"/></svg></div>
+    <div class="feat-title">Rotate Pages</div>
+    <div class="feat-desc">Rotate any selection of pages by 90° or 180° in either direction.</div>
+  </div>
+  <div class="feat">
+    <div class="feat-icon"><svg fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="#5b8fff"><path stroke-linecap="round" stroke-linejoin="round" d="M7.5 3.75H6A2.25 2.25 0 003.75 6v1.5M16.5 3.75H18A2.25 2.25 0 0120.25 6v1.5m0 9V18A2.25 2.25 0 0118 20.25h-1.5m-9 0H6A2.25 2.25 0 013.75 18v-1.5M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg></div>
+    <div class="feat-title">Crop Pages</div>
+    <div class="feat-desc">Draw a region or enter exact pixel values to crop individual pages.</div>
+  </div>
+  <div class="feat">
+    <div class="feat-icon"><svg fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="#00ffa3"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/></svg></div>
+    <div class="feat-title">100% Private</div>
+    <div class="feat-desc">Everything runs locally in your browser. Files never leave your device.</div>
+  </div>
+</div>
+
+<footer>
+  <p>© 2026 PAGR</p>
+  <p>Powered by <span>PDF.js + PDF-lib + JSZip</span> · No server uploads</p>
+</footer>
+
+</div><!-- /wrapper -->
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script>
+'use strict';
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+// ── State ─────────────────────────────────────────────────────
+let uploadedFile = null;
+let pages = []; 
+// page: { origIndex, rotation(0/90/180/270), deleted, crop:{l,t,r,b}|null, canvas(thumbnail) }
+let selectedIds = new Set();
+let outputFmt = 'pdf';
+let pngScale = 2.0;
+let resultBlob = null;
+let isProcessing = false;
+let dragSrcIdx = null;
+
+// Crop state
+let cropPageIdx = null; // index into pages[]
+let cropCanvas = null, cropCtx = null;
+let cropDragging = false, cropStart = {x:0,y:0}, cropEnd = {x:0,y:0};
+let cropNaturalW = 0, cropNaturalH = 0; // rendered canvas pixel dims
+
+const $ = id => document.getElementById(id);
+
+// ── Upload ─────────────────────────────────────────────────────
+$('browseBtn').addEventListener('click', e => { e.stopPropagation(); $('fileInput').click(); });
+$('dropZone').addEventListener('click', () => $('fileInput').click());
+$('dropZone').addEventListener('dragover', e => { e.preventDefault(); $('dropZone').classList.add('dragover'); });
+$('dropZone').addEventListener('dragleave', () => $('dropZone').classList.remove('dragover'));
+$('dropZone').addEventListener('drop', e => {
+  e.preventDefault(); $('dropZone').classList.remove('dragover');
+  const f = e.dataTransfer.files[0];
+  if (f && f.type === 'application/pdf') loadFile(f);
+  else alert('Please drop a valid PDF file.');
+});
+$('fileInput').addEventListener('change', () => { if ($('fileInput').files[0]) loadFile($('fileInput').files[0]); $('fileInput').value = ''; });
+$('changeFileBtn').addEventListener('click', () => $('fileInput').click());
+
+async function loadFile(f) {
+  uploadedFile = f;
+  pages = [];
+  selectedIds.clear();
+  resultBlob = null;
+  $('resultArea').classList.remove('show');
+  $('progArea').classList.remove('show');
+
+  $('topFileName').textContent = f.name;
+  $('topFileSub').textContent = fmtSize(f.size) + ' · Loading pages...';
+
+  const buf = await f.arrayBuffer();
+  const pdfDoc = await pdfjsLib.getDocument({ data: buf }).promise;
+  const n = pdfDoc.numPages;
+
+  for (let i = 1; i <= n; i++) {
+    const page = await pdfDoc.getPage(i);
+    const vp = page.getViewport({ scale: 1.2 });
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(vp.width); canvas.height = Math.round(vp.height);
+    await page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
+    pages.push({ origIndex: i - 1, rotation: 0, deleted: false, crop: null, canvas });
+  }
+
+  $('topFileSub').textContent = fmtSize(f.size) + ' · ' + n + ' pages loaded';
+  $('uploadCard').style.display = 'none';
+  $('editorSection').classList.add('show');
+  renderGrid();
+  updateStats();
+  updateExportInfo();
+}
+
+// ── Grid Render ────────────────────────────────────────────────
+function renderGrid() {
+  const grid = $('pageGrid');
+  grid.innerHTML = '';
+  pages.forEach((pg, idx) => {
+    const card = document.createElement('div');
+    card.className = 'pg-card' + (pg.deleted ? ' deleted' : '') + (selectedIds.has(idx) ? ' selected' : '');
+    card.dataset.idx = idx;
+    card.draggable = !pg.deleted;
+
+    // Canvas preview with rotation applied
+    const wrap = document.createElement('div');
+    wrap.className = 'pg-canvas-wrap';
+    const previewCanvas = document.createElement('canvas');
+    drawRotatedThumb(previewCanvas, pg.canvas, pg.rotation, pg.crop);
+    wrap.appendChild(previewCanvas);
+
+    // Rotation badge
+    const rotBadge = document.createElement('div');
+    rotBadge.className = 'pg-rotation-indicator' + (pg.rotation !== 0 ? ' show' : '');
+    rotBadge.textContent = pg.rotation + '°';
+    wrap.appendChild(rotBadge);
+
+    // Crop badge
+    const cropBadge = document.createElement('div');
+    cropBadge.className = 'pg-crop-indicator' + (pg.crop ? ' show' : '');
+    cropBadge.textContent = 'CROP';
+    wrap.appendChild(cropBadge);
+
+    // Select checkbox
+    const check = document.createElement('div');
+    check.className = 'pg-select-check';
+    check.innerHTML = `<svg fill="none" viewBox="0 0 24 24" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>`;
+    wrap.appendChild(check);
+
+    // Deleted overlay
+    const delOverlay = document.createElement('div');
+    delOverlay.className = 'pg-del-overlay';
+    delOverlay.innerHTML = `<svg fill="none" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>`;
+    wrap.appendChild(delOverlay);
+
+    card.appendChild(wrap);
+
+    // Footer
+    const footer = document.createElement('div');
+    footer.className = 'pg-footer';
+    footer.innerHTML = `<span class="pg-num">p${idx + 1}</span>`;
+    card.appendChild(footer);
+
+    // Click to select (not on deleted)
+    card.addEventListener('click', e => {
+      if (pg.deleted) return;
+      if (selectedIds.has(idx)) selectedIds.delete(idx);
+      else selectedIds.add(idx);
+      card.classList.toggle('selected', selectedIds.has(idx));
+      updateSelCount();
+    });
+
+    // Drag reorder
+    card.addEventListener('dragstart', e => { dragSrcIdx = idx; card.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; });
+    card.addEventListener('dragend', () => { card.classList.remove('dragging'); grid.querySelectorAll('.pg-card').forEach(c => c.classList.remove('drag-over')); });
+    card.addEventListener('dragover', e => { e.preventDefault(); if (dragSrcIdx !== idx) card.classList.add('drag-over'); });
+    card.addEventListener('dragleave', () => card.classList.remove('drag-over'));
+    card.addEventListener('drop', e => {
+      e.preventDefault(); card.classList.remove('drag-over');
+      if (dragSrcIdx === null || dragSrcIdx === idx) return;
+      const [moved] = pages.splice(dragSrcIdx, 1);
+      const newIdx = dragSrcIdx < idx ? idx : idx;
+      pages.splice(dragSrcIdx < idx ? idx : idx, 0, moved);
+      // Remap selection
+      const newSel = new Set();
+      selectedIds.forEach(s => {
+        if (s === dragSrcIdx) newSel.add(dragSrcIdx < idx ? idx : idx);
+        else if (dragSrcIdx < idx && s > dragSrcIdx && s <= idx) newSel.add(s - 1);
+        else if (dragSrcIdx > idx && s >= idx && s < dragSrcIdx) newSel.add(s + 1);
+        else newSel.add(s);
+      });
+      selectedIds = newSel;
+      dragSrcIdx = null;
+      renderGrid();
+      updateStats();
+    });
+
+    grid.appendChild(card);
+  });
+  updateSelCount();
+}
+
+function drawRotatedThumb(outCanvas, srcCanvas, rotation, crop) {
+  const sw = srcCanvas.width, sh = srcCanvas.height;
+  // Calculate crop offsets
+  const cl = crop ? crop.l : 0, ct = crop ? crop.t : 0;
+  const cr = crop ? crop.r : 0, cb = crop ? crop.b : 0;
+  const cw = Math.max(sw - cl - cr, 1);
+  const ch = Math.max(sh - ct - cb, 1);
+
+  const isFlipped = rotation === 90 || rotation === 270;
+  outCanvas.width = isFlipped ? ch : cw;
+  outCanvas.height = isFlipped ? cw : ch;
+
+  const ctx = outCanvas.getContext('2d');
+  ctx.save();
+  ctx.translate(outCanvas.width / 2, outCanvas.height / 2);
+  ctx.rotate(rotation * Math.PI / 180);
+  ctx.drawImage(srcCanvas, cl, ct, cw, ch,
+    isFlipped ? -ch / 2 : -cw / 2,
+    isFlipped ? -cw / 2 : -ch / 2,
+    cw, ch);
+  ctx.restore();
+}
+
+// ── Selection ──────────────────────────────────────────────────
+function updateSelCount() {
+  const n = selectedIds.size;
+  const el = $('selCount');
+  el.textContent = n + ' selected';
+  el.classList.toggle('show', n > 0);
+  const hasActive = [...selectedIds].some(i => !pages[i]?.deleted);
+  $('btnRotCCW').disabled = !hasActive;
+  $('btnRotCW').disabled = !hasActive;
+  $('btnRot180').disabled = !hasActive;
+  $('btnDelete').disabled = !hasActive;
+  $('btnRestore').disabled = !([...selectedIds].some(i => pages[i]?.deleted));
+  $('btnCrop').disabled = selectedIds.size !== 1 || pages[[...selectedIds][0]]?.deleted;
+  updateExportInfo();
+}
+
+$('btnSelectAll').addEventListener('click', () => {
+  pages.forEach((pg, i) => { if (!pg.deleted) selectedIds.add(i); });
+  renderGrid(); updateSelCount();
+});
+$('btnDeselectAll').addEventListener('click', () => { selectedIds.clear(); renderGrid(); updateSelCount(); });
+
+// ── Rotate ─────────────────────────────────────────────────────
+function rotateSelected(deg) {
+  selectedIds.forEach(i => {
+    if (!pages[i].deleted) pages[i].rotation = (pages[i].rotation + deg + 360) % 360;
+  });
+  renderGrid(); updateStats();
+}
+$('btnRotCCW').addEventListener('click', () => rotateSelected(-90));
+$('btnRotCW').addEventListener('click', () => rotateSelected(90));
+$('btnRot180').addEventListener('click', () => rotateSelected(180));
+
+// ── Delete / Restore ───────────────────────────────────────────
+$('btnDelete').addEventListener('click', () => {
+  selectedIds.forEach(i => { if (!pages[i].deleted) pages[i].deleted = true; });
+  selectedIds.clear(); renderGrid(); updateStats(); updateSelCount();
+});
+$('btnRestore').addEventListener('click', () => {
+  selectedIds.forEach(i => { pages[i].deleted = false; });
+  renderGrid(); updateStats(); updateSelCount();
+});
+
+function updateStats() {
+  const total = pages.length;
+  const deleted = pages.filter(p => p.deleted).length;
+  $('statTotal').textContent = total;
+  $('statActive').textContent = total - deleted;
+  $('statDeleted').textContent = deleted;
+  $('gridTitle').textContent = 'PAGES · ' + (total - deleted) + ' ACTIVE';
+}
+
+// ── Crop Modal ─────────────────────────────────────────────────
+$('btnCrop').addEventListener('click', () => {
+  const idx = [...selectedIds][0];
+  if (idx === undefined || pages[idx].deleted) return;
+  cropPageIdx = idx;
+  openCropModal(idx);
+});
+
+function openCropModal(idx) {
+  const pg = pages[idx];
+  $('cropPageLabel').textContent = 'p' + (idx + 1);
+  const modal = $('cropModal');
+  modal.classList.add('show');
+
+  // Restore existing crop values
+  $('cropL').value = pg.crop ? pg.crop.l : 0;
+  $('cropT').value = pg.crop ? pg.crop.t : 0;
+  $('cropR').value = pg.crop ? pg.crop.r : 0;
+  $('cropB').value = pg.crop ? pg.crop.b : 0;
+
+  // Render preview
+  const cc = $('cropCanvas');
+  cropNaturalW = pg.canvas.width;
+  cropNaturalH = pg.canvas.height;
+  cc.width = cropNaturalW;
+  cc.height = cropNaturalH;
+  const ctx = cc.getContext('2d');
+  ctx.drawImage(pg.canvas, 0, 0);
+  cropCanvas = cc;
+  cropCtx = ctx;
+  updateCropRect();
+}
+
+function updateCropRect() {
+  const l = parseInt($('cropL').value) || 0;
+  const t = parseInt($('cropT').value) || 0;
+  const r = parseInt($('cropR').value) || 0;
+  const b = parseInt($('cropB').value) || 0;
+  const rect = $('cropRect');
+  const wrap = $('cropCanvasWrap');
+  const scaleX = wrap.clientWidth / cropNaturalW;
+  const scaleY = (wrap.clientWidth * cropNaturalH / cropNaturalW) / cropNaturalH;
+  const scale = Math.min(scaleX, scaleY);
+  if (l + r >= cropNaturalW || t + b >= cropNaturalH) { rect.classList.remove('show'); return; }
+  rect.style.left = (l * scale) + 'px';
+  rect.style.top = (t * scale) + 'px';
+  rect.style.width = ((cropNaturalW - l - r) * scale) + 'px';
+  rect.style.height = ((cropNaturalH - t - b) * scale) + 'px';
+  rect.classList.add('show');
+}
+
+['cropL','cropT','cropR','cropB'].forEach(id => $('cropL') && $(id).addEventListener('input', updateCropRect));
+// re-attach after DOM is ready
+document.addEventListener('DOMContentLoaded', () => {
+  ['cropL','cropT','cropR','cropB'].forEach(id => $(id).addEventListener('input', updateCropRect));
+});
+
+// Draw crop on canvas via drag (mouse + touch)
+function getCropPos(e) {
+  const r = $('cropCanvas').getBoundingClientRect();
+  const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+  const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+  return { x: Math.min(Math.max(clientX - r.left, 0), r.width), y: Math.min(Math.max(clientY - r.top, 0), r.height) };
+}
+function applyCropDrag(start, end) {
+  const r = $('cropCanvas').getBoundingClientRect();
+  const scaleX = cropNaturalW / r.width;
+  const scaleY = cropNaturalH / r.height;
+  const x1 = Math.min(start.x, end.x) * scaleX;
+  const y1 = Math.min(start.y, end.y) * scaleY;
+  const x2 = Math.max(start.x, end.x) * scaleX;
+  const y2 = Math.max(start.y, end.y) * scaleY;
+  $('cropL').value = Math.round(x1);
+  $('cropT').value = Math.round(y1);
+  $('cropR').value = Math.round(Math.max(cropNaturalW - x2, 0));
+  $('cropB').value = Math.round(Math.max(cropNaturalH - y2, 0));
+  updateCropRect();
+}
+$('cropCanvas').addEventListener('mousedown', e => { cropDragging = true; const r = e.target.getBoundingClientRect(); cropStart = { x: e.clientX - r.left, y: e.clientY - r.top }; });
+$('cropCanvas').addEventListener('touchstart', e => { e.preventDefault(); cropDragging = true; cropStart = getCropPos(e); }, { passive: false });
+document.addEventListener('mousemove', e => { if (!cropDragging) return; const r = $('cropCanvas').getBoundingClientRect(); cropEnd = { x: Math.min(Math.max(e.clientX - r.left, 0), r.width), y: Math.min(Math.max(e.clientY - r.top, 0), r.height) }; applyCropDrag(cropStart, cropEnd); });
+document.addEventListener('touchmove', e => { if (!cropDragging) return; e.preventDefault(); cropEnd = getCropPos(e); applyCropDrag(cropStart, cropEnd); }, { passive: false });
+document.addEventListener('mouseup', () => { cropDragging = false; });
+document.addEventListener('touchend', () => { cropDragging = false; });
+
+// Presets
+document.querySelectorAll('.crop-preset-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (btn.dataset.clear) {
+      ['cropL','cropT','cropR','cropB'].forEach(id => $(id).value = 0);
+    } else {
+      const v = parseInt(btn.dataset.preset);
+      ['cropL','cropT','cropR','cropB'].forEach(id => $(id).value = v);
+    }
+    updateCropRect();
+  });
+});
+
+$('cropClose').addEventListener('click', closeCropModal);
+$('cropCancel').addEventListener('click', closeCropModal);
+$('cropApply').addEventListener('click', () => {
+  if (cropPageIdx === null) return;
+  const l = Math.max(0, parseInt($('cropL').value) || 0);
+  const t = Math.max(0, parseInt($('cropT').value) || 0);
+  const r = Math.max(0, parseInt($('cropR').value) || 0);
+  const b = Math.max(0, parseInt($('cropB').value) || 0);
+  if (l + r >= cropNaturalW || t + b >= cropNaturalH) { alert('Crop region is too large — nothing would remain.'); return; }
+  pages[cropPageIdx].crop = (l === 0 && t === 0 && r === 0 && b === 0) ? null : { l, t, r, b };
+  closeCropModal();
+  renderGrid();
+});
+
+function closeCropModal() {
+  $('cropModal').classList.remove('show');
+  cropPageIdx = null;
+}
+
+// ── Export Format ──────────────────────────────────────────────
+[$('fmtPdf'), $('fmtPng')].forEach(btn => {
+  btn.addEventListener('click', () => {
+    $('fmtPdf').classList.remove('active'); $('fmtPng').classList.remove('active');
+    btn.classList.add('active');
+    outputFmt = btn.dataset.fmt;
+    $('pngDpiWrap').classList.toggle('show', outputFmt === 'png');
+    $('processBtnLabel').textContent = outputFmt === 'pdf' ? 'Export PDF' : 'Export PNGs as ZIP';
+    updateExportInfo();
+  });
+});
+document.querySelectorAll('.dpi-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.dpi-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    pngScale = parseFloat(btn.dataset.scale);
+  });
+});
+
+function updateExportInfo() {
+  const active = pages.filter(p => !p.deleted).length;
+  $('exportInfo').innerHTML = `<span>${active}</span> page${active !== 1 ? 's' : ''} will be exported`;
+}
+
+// ── Process & Export ───────────────────────────────────────────
+$('processBtn').addEventListener('click', async () => {
+  if (isProcessing) return;
+  const activePages = pages.filter(p => !p.deleted);
+  if (!activePages.length) { alert('No pages to export — all pages are deleted.'); return; }
+
+  isProcessing = true;
+  $('processBtn').disabled = true;
+  $('resultArea').classList.remove('show');
+  $('progArea').classList.add('show');
+
+  try {
+    const buf = await uploadedFile.arrayBuffer();
+    const srcPdf = await PDFLib.PDFDocument.load(buf);
+    let totalRots = 0;
+
+    if (outputFmt === 'pdf') {
+      setP(5, 'CREATING PDF...', 'Initialising output document');
+      await tick();
+      const outDoc = await PDFLib.PDFDocument.create();
+
+      for (let i = 0; i < activePages.length; i++) {
+        const pg = activePages[i];
+        const pct = 5 + Math.round((i / activePages.length) * 88);
+        setP(pct, `PROCESSING PAGE ${i + 1}/${activePages.length}...`, `p${pg.origIndex + 1} · rot:${pg.rotation}°`);
+        await tick();
+
+        const [copied] = await outDoc.copyPages(srcPdf, [pg.origIndex]);
+
+        // Apply rotation
+        if (pg.rotation !== 0) {
+          const currentRot = copied.getRotation().angle;
+          const { degrees } = PDFLib;
+          copied.setRotation(degrees((currentRot + pg.rotation) % 360));
+          totalRots++;
+        }
+
+        // Apply crop via media box
+        if (pg.crop) {
+          const { l, t, r, b } = pg.crop;
+          // pdf-lib mediaBox: {x, y, width, height} — y=0 is bottom in PDF coords
+          const mb = copied.getMediaBox();
+          const mbX = mb.x || 0;
+          const mbY = mb.y || 0;
+          const mbW = mb.width || 612;
+          const mbH = mb.height || 792;
+          // Scale pixel crop values to PDF points
+          const scaleX = mbW / pg.canvas.width;
+          const scaleY = mbH / pg.canvas.height;
+          // PDF y-axis is bottom-up, so "top" in screen = reducing from top = reducing height - adding to y
+          const newX = mbX + l * scaleX;
+          const newY = mbY + b * scaleY;
+          const newW = Math.max(mbW - (l + r) * scaleX, 1);
+          const newH = Math.max(mbH - (t + b) * scaleY, 1);
+          copied.setMediaBox(newX, newY, newW, newH);
+          copied.setCropBox(newX, newY, newW, newH);
+        }
+
+        outDoc.addPage(copied);
+      }
+
+      setP(96, 'SAVING PDF...', 'Writing output');
+      await tick();
+      const bytes = await outDoc.save();
+      resultBlob = new Blob([bytes], { type: 'application/pdf' });
+      const fname = uploadedFile.name.replace(/\.pdf$/i, '') + '_edited.pdf';
+      showResult(activePages.length, totalRots, resultBlob.size, fname, false);
+
+    } else {
+      // PNG export via canvas rendering
+      const zip = new JSZip();
+      const bufForRender = await uploadedFile.arrayBuffer();
+      const pdfDocRender = await pdfjsLib.getDocument({ data: bufForRender }).promise;
+      const baseName = uploadedFile.name.replace(/\.pdf$/i, '');
+
+      for (let i = 0; i < activePages.length; i++) {
+        const pg = activePages[i];
+        const pct = 5 + Math.round((i / activePages.length) * 90);
+        setP(pct, `RENDERING PAGE ${i + 1}/${activePages.length}...`, `p${pg.origIndex + 1} as PNG`);
+        await tick();
+
+        const page = await pdfDocRender.getPage(pg.origIndex + 1);
+        const vp = page.getViewport({ scale: pngScale, rotation: pg.rotation });
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(vp.width); canvas.height = Math.round(vp.height);
+        const ctx = canvas.getContext('2d');
+        await page.render({ canvasContext: ctx, viewport: vp }).promise;
+
+        // Apply crop on PNG canvas
+        let finalCanvas = canvas;
+        if (pg.crop) {
+          const { l, t, r, b } = pg.crop;
+          const scaleX = canvas.width / pg.canvas.width;
+          const scaleY = canvas.height / pg.canvas.height;
+          const cl = Math.round(l * scaleX), ct = Math.round(t * scaleY);
+          const cw = Math.max(canvas.width - Math.round((l + r) * scaleX), 1);
+          const ch = Math.max(canvas.height - Math.round((t + b) * scaleY), 1);
+          finalCanvas = document.createElement('canvas');
+          finalCanvas.width = cw; finalCanvas.height = ch;
+          finalCanvas.getContext('2d').drawImage(canvas, cl, ct, cw, ch, 0, 0, cw, ch);
+        }
+
+        const pngBytes = await canvasToPng(finalCanvas);
+        zip.file(`${baseName}_p${String(i + 1).padStart(3, '0')}.png`, pngBytes);
+        if (pg.rotation !== 0) totalRots++;
+      }
+
+      setP(97, 'PACKAGING ZIP...', 'Compressing PNG files');
+      await tick();
+      resultBlob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 1 } });
+      const fname = baseName + '_edited_pages.zip';
+      showResult(activePages.length, totalRots, resultBlob.size, fname, true);
+    }
+
+  } catch (err) {
+    alert('Export failed: ' + err.message); console.error(err);
+    $('progArea').classList.remove('show');
+  } finally {
+    isProcessing = false;
+    $('processBtn').disabled = false;
+  }
+});
+
+function showResult(pageCount, rotations, size, fname, isZip) {
+  setP(100, 'DONE!', fname);
+  $('progArea').classList.remove('show');
+  $('rPages').textContent = pageCount;
+  $('rRots').textContent = rotations;
+  $('rSize').textContent = fmtSize(size);
+  $('resSub').textContent = isZip ? fname : fname;
+  $('dlLabel').textContent = 'Download ' + fname;
+  $('resultArea').classList.add('show');
+  $('resultArea')._fname = fname;
+}
+
+$('dlBtn').addEventListener('click', () => {
+  if (!resultBlob) return;
+  const fname = $('resultArea')._fname || 'pagr_output';
+  const url = URL.createObjectURL(resultBlob);
+  const a = document.createElement('a');
+  a.href = url; a.download = fname; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+});
+
+// ── Helpers ────────────────────────────────────────────────────
+function canvasToPng(canvas) {
+  return new Promise(res => {
+    canvas.toBlob(blob => blob.arrayBuffer().then(b => res(new Uint8Array(b))), 'image/png');
+  });
+}
+function setP(pct, label, step) {
+  $('progFill').style.width = pct + '%';
+  $('progLabel').textContent = label;
+  $('progStep').textContent = step;
+  $('progPct').textContent = pct + '%';
+}
+function fmtSize(b) {
+  if (b < 1024) return b + ' B';
+  if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';
+  return (b / 1048576).toFixed(2) + ' MB';
+}
+function tick() { return new Promise(r => setTimeout(r, 0)); }
+
+// Attach crop input listeners immediately (not just on DOMContentLoaded)
+['cropL','cropT','cropR','cropB'].forEach(id => {
+  const el = $(id);
+  if (el) el.addEventListener('input', updateCropRect);
+});
+</script>
+</body>
+</html>
