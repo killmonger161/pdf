@@ -645,7 +645,7 @@ async function compressPDF(file, targetKB, quality, itemId) {
   setP(75, 'BUILDING PDF...', 'Assembling first pass');
   setItemProgress(itemId, 75);
   await tick();
-  let pdf = await buildPDF(pages);
+  let pdf = await buildPDF(pages, file.name);
   let curSize = pdf.byteLength;
 
   if (targetBytes > 0 && curSize > targetBytes * 1.06) {
@@ -663,7 +663,7 @@ async function compressPDF(file, targetKB, quality, itemId) {
         jpeg: canvasToJpeg(pg.canvas, mid),
         w: pg.w, h: pg.h
       }));
-      const attempt = await buildPDF(rePages);
+      const attempt = await buildPDF(rePages, file.name);
       if (attempt.byteLength <= bestSize) { bestPdf = attempt; bestSize = attempt.byteLength; }
       hi = mid;
       if (bestSize <= targetBytes * 1.06) break;
@@ -704,15 +704,34 @@ function canvasToJpeg(canvas, quality) {
   return Uint8Array.from(atob(b64), c => c.charCodeAt(0));
 }
 
-async function buildPDF(pages) {
+async function buildPDF(pages, sourceName) {
   const { PDFDocument } = PDFLib;
   const out = await PDFDocument.create();
+
+  // Real, valid /Info metadata — several upload validators use this
+  // (and a classic, non-object-stream xref table) as a signal that a
+  // file is a genuine PDF rather than something mislabeled.
+  out.setTitle((sourceName || 'document').replace(/\.pdf$/i, ''));
+  out.setProducer('COMPRESSO PDF Size Optimizer');
+  out.setCreator('COMPRESSO');
+  const now = new Date();
+  out.setCreationDate(now);
+  out.setModificationDate(now);
+
   for (const pg of pages) {
     const img = await out.embedJpg(pg.jpeg);
     const p = out.addPage([pg.w, pg.h]);
     p.drawImage(img, { x: 0, y: 0, width: pg.w, height: pg.h });
   }
-  return await out.save();
+
+  // useObjectStreams:false forces pdf-lib to write a classic PDF 1.x
+  // cross-reference table instead of a compressed xref stream. Many
+  // third-party "is this a real PDF" checks (upload portals, ATS
+  // systems, some virus scanners) use naive parsers that choke on
+  // xref streams — that mismatch is the most common reason a
+  // pdf-lib-built file gets rejected while smallpdf/ilovepdf output
+  // (which also emits classic xrefs) is accepted.
+  return await out.save({ useObjectStreams: false });
 }
 
 function setP(pct, label, step) {
