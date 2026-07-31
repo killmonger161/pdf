@@ -71,26 +71,26 @@ nav{display:flex;justify-content:space-between;align-items:center;padding:24px 0
 
 /* VIEWER */
 .viewer{background:var(--sf);border:1px solid var(--bd);border-radius:13px;padding:12px}
-.canvas-wrap{position:relative;line-height:0;background:#0d0d12;border-radius:8px;overflow:hidden;cursor:crosshair;display:block;width:100%}
+.canvas-wrap{position:relative;line-height:0;background:#0d0d12;border-radius:8px;overflow:hidden;cursor:crosshair;display:block;width:100%;touch-action:none}
 #pdfCanvas{display:block;max-width:100%;height:auto}
 #overlay{position:absolute;top:0;left:0;transform-origin:top left;pointer-events:none}
 
 /* PLACEMENTS */
-.spl{position:absolute;transform-origin:center center;pointer-events:all;cursor:grab}
+.spl{position:absolute;transform-origin:center center;pointer-events:all;cursor:grab;touch-action:none;will-change:transform,left,top,width,height}
 .spl:active{cursor:grabbing}
 .spl img{width:100%;height:100%;display:block;pointer-events:none;-webkit-user-drag:none;user-select:none}
 .spl.sel{outline:1.5px dashed var(--sig);outline-offset:1px}
 .spl:not(.sel):hover{outline:1.5px dashed rgba(0,229,204,.35);outline-offset:1px}
 /* Handles — only visible when selected */
-.sph{position:absolute;width:12px;height:12px;background:var(--sig);border:2px solid var(--bg);border-radius:3px;z-index:10;touch-action:none}
-.sph-tl{top:-6px;left:-6px;cursor:nwse-resize}
-.sph-tr{top:-6px;right:-6px;cursor:nesw-resize}
-.sph-bl{bottom:-6px;left:-6px;cursor:nesw-resize}
-.sph-br{bottom:-6px;right:-6px;cursor:nwse-resize}
-.spr{position:absolute;top:-32px;left:50%;transform:translateX(-50%);width:20px;height:20px;background:var(--sig);border:2px solid var(--bg);border-radius:50%;cursor:crosshair;z-index:10;display:flex;align-items:center;justify-content:center;touch-action:none}
+.sph{position:absolute;width:16px;height:16px;background:var(--sig);border:2px solid var(--bg);border-radius:3px;z-index:10;touch-action:none}
+.sph-tl{top:-8px;left:-8px;cursor:nwse-resize}
+.sph-tr{top:-8px;right:-8px;cursor:nesw-resize}
+.sph-bl{bottom:-8px;left:-8px;cursor:nesw-resize}
+.sph-br{bottom:-8px;right:-8px;cursor:nwse-resize}
+.spr{position:absolute;top:-34px;left:50%;transform:translateX(-50%);width:24px;height:24px;background:var(--sig);border:2px solid var(--bg);border-radius:50%;cursor:crosshair;z-index:10;display:flex;align-items:center;justify-content:center;touch-action:none}
 .spr::after{content:'';position:absolute;bottom:-9px;left:50%;transform:translateX(-50%);width:1.5px;height:7px;background:var(--sig)}
 .spr svg{width:9px;height:9px;stroke:var(--bg);stroke-width:3;pointer-events:none}
-.spd{position:absolute;top:-9px;right:-9px;width:18px;height:18px;background:var(--err);border:2px solid var(--bg);border-radius:50%;cursor:pointer;z-index:11;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;line-height:1}
+.spd{position:absolute;top:-10px;right:-10px;width:22px;height:22px;background:var(--err);border:2px solid var(--bg);border-radius:50%;cursor:pointer;z-index:11;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;line-height:1;touch-action:none}
 .spd:hover{background:#ff6060}
 
 /* PAGE NAV */
@@ -233,7 +233,7 @@ footer span{color:var(--sig)}
   <div class="logo"><div class="logo-dot"></div>SGNR</div>
   <div class="nav-r">
     <a class="nav-back" href="index.html"><svg fill="none" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"/></svg>Back</a>
-    <div class="nav-tag">PDF SIGNER v1.1</div>
+    <div class="nav-tag">PDF SIGNER v1.2</div>
   </div>
 </nav>
 
@@ -394,7 +394,14 @@ footer span{color:var(--sig)}
 'use strict';
 pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-const RSCALE=1.5, ESCALE=3.0, MINSZ=20;
+// Mobile detection — used to trade a little render/export resolution
+// for a lot of smoothness on phones (smaller canvases = less work per
+// touch-move frame and a much faster export loop).
+const isMobile = window.innerWidth < 768 || (('ontouchstart' in window) && window.innerWidth < 900);
+const RSCALE = isMobile ? 1.15 : 1.5;
+const ESCALE = isMobile ? 2.2 : 3.0;
+const MINSZ = 20;
+
 let file=null, pdfDoc=null, pages=0, curPg=0;
 let rScales={}, sigs=[], activeSig=null;
 let placements={}, selId=null, ix=null, blob=null, busy=false;
@@ -436,7 +443,7 @@ async function renderPage(){
   const vp=page.getViewport({scale:sc});
   cv.width=Math.round(vp.width); cv.height=Math.round(vp.height);
   cv.style.maxWidth='100%';
-  const ctx=cv.getContext('2d');
+  const ctx=cv.getContext('2d',{willReadFrequently:false});
   ctx.fillStyle='#fff'; ctx.fillRect(0,0,cv.width,cv.height);
   await page.render({canvasContext:ctx,viewport:vp}).promise;
   rScales[curPg]=sc;
@@ -490,11 +497,11 @@ function mkEl(pl,sig){
 
 function setElStyle(el,pl){
   const flip=flipMap[pl.id]?' scaleX(-1)':'';
-  el.style.cssText=`position:absolute;left:${pl.x}px;top:${pl.y}px;width:${pl.w}px;height:${pl.h}px;transform:rotate(${pl.rot}deg)${flip};opacity:${pl.opac};transform-origin:center center;pointer-events:all`;
+  el.style.cssText=`position:absolute;left:${pl.x}px;top:${pl.y}px;width:${pl.w}px;height:${pl.h}px;transform:rotate(${pl.rot}deg)${flip};opacity:${pl.opac};transform-origin:center center;pointer-events:all;touch-action:none;will-change:transform`;
 }
 
 function patchEl(pl){
-  const el=$('overlay').querySelector(`[data-id="${pl.id}"]`);
+  const el=(ix&&ix.el)||$('overlay').querySelector(`[data-id="${pl.id}"]`);
   if(el) setElStyle(el,pl);
 }
 
@@ -519,14 +526,16 @@ function onDown(e){
   if(selId!==id){selId=id;buildOverlay();updateSelPanel();}
   const m=toCv(e);
   const cv=$('pdfCanvas');
+  // Cache the live DOM element so drag-time updates skip querySelector.
+  const liveEl=$('overlay').querySelector(`[data-id="${id}"]`);
   if(!a){
-    ix={type:'mv',id,ox:m.x-pl.x,oy:m.y-pl.y,cW:cv.width,cH:cv.height};
+    ix={type:'mv',id,el:liveEl,ox:m.x-pl.x,oy:m.y-pl.y,cW:cv.width,cH:cv.height};
   }else if(a[0]==='r'&&a!=='rot'){
     const c=a.slice(1);
-    ix={type:'rs',c,id,sm:{...m},sx:pl.x,sy:pl.y,sw:pl.w,sh:pl.h,ar:pl.w/pl.h};
+    ix={type:'rs',c,id,el:liveEl,sm:{...m},sx:pl.x,sy:pl.y,sw:pl.w,sh:pl.h,ar:pl.w/pl.h};
   }else if(a==='rot'){
     const cx=pl.x+pl.w/2,cy=pl.y+pl.h/2;
-    ix={type:'rot',id,cx,cy,sa:Math.atan2(m.y-cy,m.x-cx)*180/Math.PI,sr:pl.rot};
+    ix={type:'rot',id,el:liveEl,cx,cy,sa:Math.atan2(m.y-cy,m.x-cx)*180/Math.PI,sr:pl.rot};
   }
 }
 
@@ -535,9 +544,23 @@ document.addEventListener('touchmove',onMove,{passive:false});
 document.addEventListener('mouseup',onUp);
 document.addEventListener('touchend',onUp);
 
+// requestAnimationFrame-throttled drag: touch/mouse-move events can fire
+// far faster than the screen can repaint, and re-rendering the whole
+// placed-signature list on every single one of those events was the
+// main source of mobile lag. Now we only touch the DOM once per frame,
+// and only rebuild the (expensive) sidebar list once the drag ends.
+let pendingEvt=null, rafId=null;
 function onMove(e){
   if(!ix) return;
   e.preventDefault();
+  pendingEvt=e;
+  if(rafId===null) rafId=requestAnimationFrame(applyMove);
+}
+
+function applyMove(){
+  rafId=null;
+  const e=pendingEvt; pendingEvt=null;
+  if(!e||!ix) return;
   const pl=findPl(ix.id); if(!pl) return;
   const m=toCv(e);
   if(ix.type==='mv'){
@@ -563,10 +586,21 @@ function onMove(e){
     [0,90,-90,180,-180].forEach(s=>{if(Math.abs(r-s)<4)r=s;});
     pl.rot=r;
   }
-  patchEl(pl); updateSelPanel(); updatePlList();
+  patchEl(pl);
+  // Cheap live readouts only — no full list/panel rebuild mid-drag.
+  if(ix.type==='rot'){
+    $('sRotSlider').value=Math.round(pl.rot);
+    $('sRotV').textContent=Math.round(pl.rot)+'°';
+  }
 }
 
-function onUp(){if(ix){ix=null;updateStats();}}
+function onUp(){
+  if(ix){
+    if(rafId!==null){cancelAnimationFrame(rafId);rafId=null;applyMove();}
+    ix=null;pendingEvt=null;
+    updateStats();updatePlList();updateSelPanel();
+  }
+}
 
 $('pdfCanvas').addEventListener('click',()=>{
   if(selId){selId=null;buildOverlay();updateSelPanel();}
@@ -620,7 +654,7 @@ async function removeBg(url,thresh){
     im.onload=()=>{
       const c=document.createElement('canvas');
       c.width=im.naturalWidth;c.height=im.naturalHeight;
-      const ctx=c.getContext('2d');ctx.drawImage(im,0,0);
+      const ctx=c.getContext('2d',{willReadFrequently:true});ctx.drawImage(im,0,0);
       const d=ctx.getImageData(0,0,c.width,c.height),px=d.data,n=px.length;
       // Sample corners for bg colour
       const ci=[0,(c.width-1)*4,(c.height-1)*c.width*4,((c.height-1)*c.width+c.width-1)*4];
@@ -754,6 +788,16 @@ $('expBtn').onclick=async()=>{
     const buf=await file.arrayBuffer();
     const pr=await pdfjsLib.getDocument({data:buf.slice()}).promise;
     const out=await PDFLib.PDFDocument.create();
+
+    // Real /Info metadata so third-party sites recognise this as a
+    // genuine PDF rather than something mislabeled.
+    out.setTitle(fname);
+    out.setProducer('SGNR PDF Signer');
+    out.setCreator('SGNR');
+    const now=new Date();
+    out.setCreationDate(now);
+    out.setModificationDate(now);
+
     for(let i=0;i<pages;i++){
       setP(5+Math.round(i/pages*88),`Page ${i+1}/${pages}`,`Compositing...`);await tick();
       const page=await pr.getPage(i+1);
@@ -781,7 +825,14 @@ $('expBtn').onclick=async()=>{
       np.drawImage(emb,{x:0,y:0,width:vp1.width,height:vp1.height});
     }
     setP(98,'Saving...','');await tick();
-    const bytes=await out.save();
+
+    // useObjectStreams:false → classic PDF 1.x cross-reference table
+    // instead of a compressed xref stream. Naive parsers used by many
+    // upload validators / ATS systems / scanners choke on xref
+    // streams, which is the most common reason a pdf-lib file gets
+    // rejected while smallpdf/ilovepdf output (also classic xref) is
+    // accepted.
+    const bytes=await out.save({useObjectStreams:false});
     blob=new Blob([bytes],{type:'application/pdf'});
     setP(100,'Done!','');
     $('progWrap').classList.remove('on');
